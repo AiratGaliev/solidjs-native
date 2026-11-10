@@ -1,0 +1,16 @@
+packages:
+  - "packages/*"
+  - "examples/*"
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - "@rollup/rollup-android-arm-eabi@4.68.2"
+  - "@rollup/rollup-darwin-x64@4.68.2"
+  - "@rollup/rollup-freebsd-x64@4.68.2"
+  - "@rollup/rollup-linux-loong64-gnu@4.68.2"
+  - "@rollup/rollup-linux-riscv64-musl@4.68.2"
+  - "@rollup/rollup-linux-x64-gnu@4.68.2"
+  - "@rollup/rollup-linux-x64-musl@4.68.2"
+  - "@rollup/rollup-openharmony-arm64@4.68.2"
+  - "@rollup/rollup-win32-ia32-msvc@4.68.2"
+  - "@rollup/rollup-win32-x64-gnu@4.68.2"

@@ -1,0 +1,24 @@
+{
+  "name": "solidjs-native",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0+sha512.9d7882d5dc82147ecfc4e062aa34834e0ad0296710a1837a1115ae012127d36b7109e321ac1598a1dd0a65597681b1e99917e12ed0d749eae91187943363beb3",
+  "scripts": {
+    "dev": "vite --config packages/solid-native/vite.config.ts",
+    "build": "vite build --config packages/solid-native/vite.config.ts",
+    "smoke": "pnpm build && cargo run --locked -p sn-runtime -- dist/solid-native-demo.js",
+    "typecheck": "tsc --noEmit",
+    "test:rust": "cargo test --workspace --locked",
+    "check": "pnpm typecheck && pnpm build && cargo test --workspace --locked"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vite": "8.3.7",
+    "vite-plugin-solid": "2.11.15"
+  },
+  "dependencies": {
+    "solid-js": "1.9.18"
+  }
+}

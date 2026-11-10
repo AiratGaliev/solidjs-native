@@ -1,0 +1,18 @@
+# Build outputs and generated dependency trees
+/target/
+node_modules/
+dist/
+.vite/
+
+# IDE and editor state
+.idea/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and OS metadata
+*.log
+.DS_Store
+Thumbs.db

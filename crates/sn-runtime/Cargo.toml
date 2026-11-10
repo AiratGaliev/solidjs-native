@@ -1,0 +1,10 @@
+[package]
+name = "sn-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rquickjs.workspace = true
+sn-core = { path = "../sn-core" }

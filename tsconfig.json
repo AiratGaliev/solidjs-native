@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-native",
+    "types": ["vite/client", "node"],
+    "paths": {
+      "solid-native": ["./packages/solid-native/src/index.ts"],
+      "solid-native/jsx-runtime": ["./packages/solid-native/src/jsx-runtime.ts"]
+    },
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "examples/**/*.ts", "examples/**/*.tsx"]
+}
