@@ -47,10 +47,14 @@ function isDescendant(candidate: NativeNode, ancestor: NativeNode): boolean {
 }
 
 function clearLocalSubtree(node: NativeNode): void {
-  for (const child of node.children) clearLocalSubtree(child);
-  node.eventHandlerIds.clear();
-  node.parent = null;
-  node.children = [];
+  const pending = [node];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    for (const child of current.children) pending.push(child);
+    current.eventHandlerIds.clear();
+    current.parent = null;
+    current.children = [];
+  }
 }
 
 const renderer = createRenderer<NativeNode>({
@@ -162,15 +166,49 @@ export function render(code: () => unknown, root: NativeNode) {
     root.nodeId = encoder.createElement(root.tag ?? "root");
   }
   assertElement(root, "render root");
-  const dispose = renderer.render(() => code() as NativeNode, root);
-  encoder.flush();
+  let dispose: (() => void) | undefined;
+  try {
+    dispose = renderer.render(() => code() as NativeNode, root);
+    encoder.flush();
+  } catch (error) {
+    try {
+      dispose?.();
+    } catch {
+      // Preserve the original mount/commit failure; the whole host session is aborted below.
+    }
+    clearLocalSubtree(root);
+    encoder.abort();
+    throw error;
+  }
+
   let disposed = false;
   return () => {
     if (disposed) return;
     disposed = true;
-    dispose();
-    encoder.removeNode(root.nodeId);
-    encoder.flush();
+
+    try {
+      dispose?.();
+    } catch (error) {
+      try {
+        encoder.abort();
+      } finally {
+        clearLocalSubtree(root);
+      }
+      throw error;
+    }
+
+    try {
+      encoder.removeNode(root.nodeId);
+      encoder.flush();
+    } catch (error) {
+      try {
+        encoder.abort();
+      } finally {
+        clearLocalSubtree(root);
+      }
+      throw error;
+    }
+    clearLocalSubtree(root);
   };
 }
 
