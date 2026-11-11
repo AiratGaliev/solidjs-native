@@ -192,16 +192,19 @@ impl UiTree {
         self.nodes.len()
     }
 
+    #[cfg(test)]
     fn create_element(&mut self, tag: impl Into<String>) -> Result<NodeId, TreeError> {
         let tag = tag.into();
         validate_name(&tag, "element tag", 256)?;
         self.allocate_node(NodeKind::Element(tag), None)
     }
 
+    #[cfg(test)]
     fn create_text(&mut self, value: impl Into<String>) -> Result<NodeId, TreeError> {
         self.allocate_node(NodeKind::Text, Some(value.into()))
     }
 
+    #[cfg(test)]
     fn allocate_node(&mut self, kind: NodeKind, text: Option<String>) -> Result<NodeId, TreeError> {
         let id = NodeId(self.next_node_id);
         self.next_node_id = self
@@ -273,6 +276,7 @@ impl UiTree {
             .collect()
     }
 
+    #[cfg(test)]
     fn set_property(
         &mut self,
         id: NodeId,
