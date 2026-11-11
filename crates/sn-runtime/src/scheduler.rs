@@ -533,7 +533,17 @@ mod tests {
             assert!(frame_requested.load(Ordering::Acquire));
             let cutoff = state.borrow_mut().begin_frame().unwrap();
             let mut delivered = 0;
-            while let Some((_, callback)) = state.borrow_mut().take_next_frame_callback(cutoff) {
+            loop {
+                // End the RefMut scope before invoking JavaScript: the callback
+                // may cancel or schedule another frame and re-enter this state.
+                let next_callback = {
+                    state
+                        .borrow_mut()
+                        .take_next_frame_callback(cutoff)
+                };
+                let Some((_, callback)) = next_callback else {
+                    break;
+                };
                 callback
                     .restore(&ctx)
                     .unwrap()
