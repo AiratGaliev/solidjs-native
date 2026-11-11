@@ -79,6 +79,19 @@ test("rejects unpaired low UTF-16 surrogate input", () => {
   assert.throws(() => encoder.encode(), /unpaired low surrogate/);
 });
 
+test("accepts a string exactly at the 1 MiB UTF-8 limit", () => {
+  const encoder = new HostBatchEncoder();
+  encoder.createText("🙂".repeat(256 * 1024));
+  const bytes = encoder.encode();
+  assert.equal(bytes.length, 64 + 24 + 1024 * 1024);
+});
+
+test("rejects a string above the 1 MiB UTF-8 limit during encoding", () => {
+  const encoder = new HostBatchEncoder();
+  encoder.createText("🙂".repeat(256 * 1024 + 1));
+  assert.throws(() => encoder.encode(), /string length is outside the allowed range/);
+});
+
 
 test("discards uncommitted callback roots and poisons the adapter after encode failure", () => {
   const previousRegister = globalThis.__sn_register_callback;
@@ -107,6 +120,41 @@ test("discards uncommitted callback roots and poisons the adapter after encode f
   }
 });
 
+
+test("aborts a failed mount session and releases pending callbacks without applying a batch", () => {
+  const previousRegister = globalThis.__sn_register_callback;
+  const previousDiscard = globalThis.__sn_discard_pending_callbacks;
+  const previousDispose = globalThis.__sn_dispose;
+  const previousApply = globalThis.__sn_apply_batch;
+  let discarded = 0;
+  let disposed = 0;
+  let applied = 0;
+  globalThis.__sn_register_callback = () => 8;
+  globalThis.__sn_discard_pending_callbacks = () => { discarded += 1; };
+  globalThis.__sn_dispose = () => { disposed += 1; };
+  globalThis.__sn_apply_batch = () => { applied += 1; throw new Error("Aborted batch must not be applied"); };
+
+  try {
+    const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
+    encoder.createElement("root");
+    encoder.registerCallback(() => {});
+    encoder.abort();
+
+    assert.equal(discarded, 1);
+    assert.equal(disposed, 1);
+    assert.equal(applied, 0);
+    assert.throws(() => encoder.flush(), /disposed/);
+  } finally {
+    if (previousRegister === undefined) delete globalThis.__sn_register_callback;
+    else globalThis.__sn_register_callback = previousRegister;
+    if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
+    else globalThis.__sn_discard_pending_callbacks = previousDiscard;
+    if (previousDispose === undefined) delete globalThis.__sn_dispose;
+    else globalThis.__sn_dispose = previousDispose;
+    if (previousApply === undefined) delete globalThis.__sn_apply_batch;
+    else globalThis.__sn_apply_batch = previousApply;
+  }
+});
 
 test("accepts supported primitive host values and rejects symbols, bigints and objects", () => {
   for (const value of ["text", 42, true, false, null]) {
