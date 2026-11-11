@@ -60,10 +60,13 @@ function copyByteArray(source: readonly number[]): Uint8Array {
 }
 
 function encodeUtf8(value: string): Uint8Array {
-  if (value.includes(String.fromCharCode(0))) throw new TypeError("Host protocol strings cannot contain NUL");
   const bytes: number[] = [];
+  let byteLength = 0;
+
   for (let index = 0; index < value.length; index += 1) {
     let codePoint = value.charCodeAt(index);
+    if (codePoint === 0) throw new TypeError("Host protocol strings cannot contain NUL");
+
     if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
       const low = value.charCodeAt(index + 1);
       if (!(low >= 0xdc00 && low <= 0xdfff)) throw new TypeError("String contains an unpaired high surrogate");
@@ -74,23 +77,33 @@ function encodeUtf8(value: string): Uint8Array {
     }
 
     const encodedLength = codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
-    if (bytes.length > MAX_STRING_BYTES - encodedLength) {
+    if (byteLength > MAX_STRING_BYTES - encodedLength) {
       throw new RangeError("Host protocol string length is outside the allowed range");
     }
 
     if (encodedLength === 1) {
-      bytes.push(codePoint);
+      bytes[byteLength] = codePoint;
+      byteLength += 1;
     } else if (encodedLength === 2) {
-      bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+      bytes[byteLength] = 0xc0 | (codePoint >> 6);
+      bytes[byteLength + 1] = 0x80 | (codePoint & 0x3f);
+      byteLength += 2;
     } else if (encodedLength === 3) {
-      bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+      bytes[byteLength] = 0xe0 | (codePoint >> 12);
+      bytes[byteLength + 1] = 0x80 | ((codePoint >> 6) & 0x3f);
+      bytes[byteLength + 2] = 0x80 | (codePoint & 0x3f);
+      byteLength += 3;
     } else {
-      bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+      bytes[byteLength] = 0xf0 | (codePoint >> 18);
+      bytes[byteLength + 1] = 0x80 | ((codePoint >> 12) & 0x3f);
+      bytes[byteLength + 2] = 0x80 | ((codePoint >> 6) & 0x3f);
+      bytes[byteLength + 3] = 0x80 | (codePoint & 0x3f);
+      byteLength += 4;
     }
   }
+
   return copyByteArray(bytes);
 }
-
 class StringArena {
   private readonly bytes: number[] = [];
 
@@ -98,7 +111,9 @@ class StringArena {
     const encoded = encodeUtf8(value);
     const reference = { offset: this.bytes.length, length: encoded.length };
     if (reference.offset + reference.length > MAX_BATCH_BYTES) throw new RangeError("Host protocol string arena is too large");
-    for (const byte of encoded) this.bytes.push(byte);
+    for (let index = 0; index < encoded.length; index += 1) {
+      this.bytes[this.bytes.length] = encoded[index] ?? 0;
+    }
     return reference;
   }
 
