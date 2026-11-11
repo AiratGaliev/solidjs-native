@@ -47,7 +47,7 @@ impl ManualClock {
         let target = duration_to_nanos(value);
         let _ = self
             .nanos
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
                 Some(current.max(target))
             });
     }
@@ -56,7 +56,7 @@ impl ManualClock {
         let increment = duration_to_nanos(delta);
         let _ = self
             .nanos
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
                 Some(current.saturating_add(increment))
             });
     }

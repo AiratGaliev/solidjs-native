@@ -61,10 +61,10 @@ impl SchedulerState {
         Ok(id)
     }
 
-    fn set_timer(
+    fn set_timer<'js>(
         &mut self,
-        ctx: &Ctx<'_>,
-        callback: Function<'_>,
+        ctx: &Ctx<'js>,
+        callback: Function<'js>,
         delay_ms: f64,
         repeating: bool,
         now: Duration,
@@ -103,7 +103,11 @@ impl SchedulerState {
         self.timers.remove(&id).is_some()
     }
 
-    fn request_frame(&mut self, ctx: &Ctx<'_>, callback: Function<'_>) -> rquickjs::Result<u32> {
+    fn request_frame<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        callback: Function<'js>,
+    ) -> rquickjs::Result<u32> {
         if self.frame_callbacks.len() >= MAX_PENDING_FRAME_CALLBACKS {
             return Err(Exception::throw_range(
                 ctx,
@@ -146,11 +150,11 @@ impl SchedulerState {
             .map(|callback| (id, callback))
     }
 
-    fn register_completion(
+    fn register_completion<'js>(
         &mut self,
-        ctx: &Ctx<'_>,
+        ctx: &Ctx<'js>,
         callback_id: u64,
-        callback: Function<'_>,
+        callback: Function<'js>,
     ) -> rquickjs::Result<()> {
         if callback_id == 0 {
             return Err(Exception::throw_range(
@@ -456,7 +460,7 @@ mod tests {
             for _ in 0..(MAX_TIMER_QUEUE_ENTRIES * 2) {
                 let id = state
                     .borrow_mut()
-                    .set_timer(ctx, callback.clone(), 60_000.0, false, Duration::ZERO)
+                    .set_timer(&ctx, callback.clone(), 60_000.0, false, Duration::ZERO)
                     .unwrap();
                 assert!(state.borrow_mut().clear_timer(id));
             }
@@ -530,7 +534,7 @@ mod tests {
             let mut delivered = 0;
             while let Some((_, callback)) = state.borrow_mut().take_next_frame_callback(cutoff) {
                 callback
-                    .restore(ctx)
+                    .restore(&ctx)
                     .unwrap()
                     .call::<_, ()>((16.5f64,))
                     .unwrap();
@@ -543,7 +547,7 @@ mod tests {
 
             let next_cutoff = state.borrow_mut().begin_frame().unwrap();
             let (_, callback) = state.borrow_mut().take_next_frame_callback(next_cutoff).unwrap();
-            callback.restore(ctx).unwrap().call::<_, ()>((33.0f64,)).unwrap();
+            callback.restore(&ctx).unwrap().call::<_, ()>((33.0f64,)).unwrap();
             assert!(!frame_requested.load(Ordering::Acquire));
             let frames: String = ctx.eval("frames.join(',')").unwrap();
             assert_eq!(frames, "first:16.5,last:16.5,next:33");

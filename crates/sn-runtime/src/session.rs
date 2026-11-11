@@ -280,7 +280,7 @@ pub struct EngineSessionHandle {
 impl EngineSessionHandle {
     fn allocate_task_id(&self) -> Result<u64, SessionError> {
         self.next_task_id
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
                 current.checked_add(1)
             })
             .map_err(|_| SessionError::Runtime("EngineSession task id space exhausted".into()))
@@ -304,7 +304,7 @@ impl EngineSessionHandle {
 
         let reserved =
             self.pending_commands
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
                     (pending < self.queue_capacity).then_some(pending + 1)
                 });
         if reserved.is_err() {
@@ -312,7 +312,7 @@ impl EngineSessionHandle {
         }
         let byte_reservation =
             self.pending_queue_bytes
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
                     pending
                         .checked_add(payload_bytes)
                         .filter(|total| *total <= self.max_queued_bytes)
