@@ -11,7 +11,7 @@ SolidJS Native will reuse mature upstream components where their contracts fit. 
 
 The architecture is composed from references with deliberately different responsibilities:
 
-- **Tauri 2 — product completeness.** Use its application-framework scope as the checklist for lifecycle, windows, plugins, permissions, CLI, packaging and updates. Do not adopt its WebView renderer as the native UI.
+- **Tauri 2 — external application-framework reference.** Study its lifecycle, windows, plugins, permissions, CLI, packaging, updates and developer workflow as examples of established solutions. Treat findings as input for independent design decisions; neither feature parity nor adoption of its WebView renderer is required.
 - **Upstream SolidJS — application runtime contract.** Use the official SolidJS runtime and Universal renderer. Do not reimplement Solid's reactive graph in Rust.
 - **QuickJS-NG + rquickjs — native JavaScript execution.** Keep the VM behind the runtime adapter. The Web target uses the normal browser runtime and remains a separate deployment target, not another embedded VM in the native runtime.
 - **NSH — primary native implementation and rendering reference.** Reuse its architectural patterns for retained trees, batched commits, Taffy integration, platform ownership, input, text editing, accessibility, native controls and per-platform drawing. Follow the same principle: native platform APIs render each target; do not introduce a separate unified GPU renderer by default.
@@ -25,7 +25,7 @@ The architecture is composed from references with deliberately different respons
 
 | Subsystem | Selected source / technology | Classification | Integration boundary and constraints |
 |---|---|---|---|
-| Application framework scope | Tauri 2 | Reference | Product checklist only: lifecycle, windows, menus, plugins, capabilities, CLI, packaging, updates and developer workflow. No Tauri WebView requirement. |
+| Application framework reference | Tauri 2 | External reference only | Study established approaches to lifecycle, windows, menus, plugins, capabilities, CLI, packaging, updates and developer workflow. SolidJS Native selects capabilities independently; no parity, compatibility or WebView requirement. |
 | Reactive UI and renderer contract | Upstream SolidJS + `solid-js/universal` | Adopt | The real SolidJS runtime owns signals, effects, owners and cleanup. The Universal renderer is the only application UI mutation source. |
 | Native JavaScript VM | QuickJS-NG 0.16.2 snapshot through `rquickjs` 0.14.0 | Adopted in current M0 prototype; M2 version/security review required | One owner engine thread per runtime. Keep VM types out of `sn-core`; limits/capabilities are not a sandbox. Upstream QuickJS-NG is now 0.18.0; upgrade only with a compatible binding and runtime conformance tests. `rquickjs` marks Windows MSVC experimental and has no verified iOS/Android support matrix. |
 | Optional JIT distribution | Longbridge `quickjs-jit` 0.14.2 + matching `quickjs-jit-runtime` | Comparative M2 candidate; not selected | Downstream `rquickjs` distribution; the binding package alone does not activate machine-code JIT. JIT runtime/core/sys crates must use the exact same release. It is based on QuickJS-NG 0.16.2+, not the upstream 0.18.0 line. Evaluate only with representative SolidJS workloads and per-platform build/support checks. |
@@ -43,7 +43,7 @@ The architecture is composed from references with deliberately different respons
 | Native platform rendering | NSH per-platform retained renderer + native OS graphics APIs | Adopt as architecture pattern | Apply committed tree/layout/style updates through `MountBatch` to backend-owned state. Render through each OS's native stack; keep damage tracking, batching and drawing details private to the backend. Do not introduce a mandatory generic DisplayList or unified GPU renderer. |
 | Unified 2D vector renderer | Vello family (`vello_cpu`, `vello_gpu`, compute `vello`) | Not selected | Vello is a rasterization subsystem, not a native UI framework. Do not add Vello/wgpu to core or make rendering depend on a cross-platform GPU stack. Revisit `vello_gpu` only if benchmarks show duplicated native drawing code is a real cost and a prototype proves a net benefit. |
 | First Windows surface renderer | Direct2D + DirectWrite, following NSH's implementation pattern | Initial implementation direction | It is the first vertical slice on the development platform. Other targets use their corresponding native drawing stacks following NSH; platform adapters keep OS-specific drawing details out of shared engine contracts. |
-| Browser target and Phaser preview | Standard browser runtime | Separate target | Phaser preview runs as a normal web workload in the browser. It does not require an embedded browser engine or a browser-renderer bridge inside the native UI runtime. |
+| Browser target | Standard browser runtime | Separate target | Browser-only workloads run as normal web workloads in the browser. They do not require an embedded browser engine or a browser-renderer bridge inside the native UI runtime. |
 | Raster and SVG decoding | `image`, `resvg` | Evaluate / adopt where required | Keep decoding off the UI thread and expose immutable resource handles. Verify formats, security limits, target support and licensing before enabling formats. |
 | Geometry and coordinate units | Project-owned logical units; `euclid` as a candidate | Adapt / Evaluate | Preserve explicit logical-pixel, physical-pixel and local-coordinate spaces. Adopt a general geometry crate only if it removes duplication without leaking unrelated coordinate types into public contracts. |
 | CSS conformance references | Servo Web Platform Tests (WPT) subset | Reference / test data | Reuse relevant CSS parser/cascade/selector fixtures as test inputs where licensing and harness requirements permit. Separate browser layout/paint expectations from our documented native compatibility profile. |
@@ -87,7 +87,7 @@ TypeScript / TSX
              Windows / macOS / Linux / iOS / Android
 
 Browser-only path:
-      Web target → normal browser runtime (including Phaser preview)
+      Web target → normal browser runtime
 ```
 
 ## 4. Non-negotiable integration contracts
@@ -110,7 +110,7 @@ Servo is not adopted as a browser runtime or rendering stack. The only planned r
 
 Adapt Stylo behind sn-style: provide a read-only DOM facade over committed sn-core::UiTree state and keep its element/style data in a sidecar keyed by stable UiNodeId. Normalize computed values into project-owned DTOs consumed by sn-layout and the platform renderers.
 
-Do not import Servo's browser runtime, networking/storage, browser layout and paint pipeline, compositor, embedding layer or event loop. Phaser preview is a separate Web target running in a normal browser; it does not use Servo or a renderer embedded in SolidJS Native.
+Do not import Servo's browser runtime, networking/storage, browser layout and paint pipeline, compositor, embedding layer or event loop. Browser-only workloads use the separate Web target and do not use Servo or a renderer embedded in SolidJS Native.
 
 ## 6. Adoption gates
 

@@ -1,10 +1,10 @@
 # Documentation index
 
-Документация описывает SolidJS Native как самостоятельный Tauri-class application framework для настоящего upstream SolidJS. Роли источников разделены: Tauri 2 задаёт продуктовый scope; NSH — основной native implementation и platform-rendering reference; GPUI Kit/GPUI Shell — comparative desktop UI and QuickJS-host reference; Servo Stylo — reference для CSS implementation.
+Документация описывает SolidJS Native как самостоятельный cross-platform application framework для настоящего upstream SolidJS. Tauri 2 используется только как внешний референс для изучения архитектуры подобных framework и developer workflow. Продуктовые требования SolidJS Native определяются самостоятельно. Роли источников разделены: NSH — основной native implementation и platform-rendering reference; GPUI Kit/GPUI Shell — comparative desktop UI and QuickJS-host reference; Servo Stylo — reference для CSS implementation.
 
 ## Start here
 
-1. [Tauri replacement scope](architecture/tauri-replacement-scope.md) — product requirements, application framework capabilities and Codogma migration gate.
+1. [Application framework scope](architecture/application-framework.md) — independent framework scope, Application Bridge, plugins, permissions, platforms and consumer validation.
 2. [Target architecture](architecture/target-architecture.md) — system layers, ownership, threading, tree, protocols, layout, rendering, security and performance.
 3. [Architecture reuse and dependency adoption map](architecture/dependency-adoption.md) — final reference roles, selected components, prototype candidates and reuse boundaries.
 4. [Styling, CSS and Tailwind CSS](architecture/styling-and-css.md) — shared styling model, native CSS compatibility profile, Tailwind build integration and Stylo adapter.
@@ -28,7 +28,7 @@
 - [ADR-0005: Taffy and hybrid native rendering](decisions/0005-layout-and-native-rendering.md)
 - [ADR-0006: TSX-first application model and Web backend](decisions/0006-application-model-and-web.md)
 - [ADR-0007: Capability security for dynamic modules](decisions/0007-capabilities-and-runtime-packages.md)
-- [ADR-0008: Tauri-class application framework for Codogma](decisions/0008-tauri-class-application-framework.md)
+- [ADR-0008: Standalone cross-platform application framework](decisions/0008-standalone-application-framework.md)
 - [ADR-0009: CSS and Tailwind CSS for native styling](decisions/0009-css-and-tailwind-native-styling.md)
 
 ## Reference material

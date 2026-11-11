@@ -1,7 +1,7 @@
 # Platform Backends и Native Embedding
 
 - Статус: целевая архитектура платформенного слоя.
-- Связанные документы: [target-architecture.md](target-architecture.md), [Tauri replacement scope](tauri-replacement-scope.md), [SolidJS runtime and host protocol](solidjs-runtime-and-host-protocol.md), [NSH implementation reference map](nsh-feature-parity.md).
+- Связанные документы: [target-architecture.md](target-architecture.md), [Application framework scope](application-framework.md), [SolidJS runtime and host protocol](solidjs-runtime-and-host-protocol.md), [NSH implementation reference map](nsh-feature-parity.md).
 - Основное правило: общая семантика UI, разные нативные реализации.
 
 ## 1. Область ответственности
@@ -278,7 +278,7 @@ GPUI is a comparative desktop-framework reference, not a selected platform backe
 
 Native rendering follows NSH's per-platform strategy: each platform backend owns its drawing API, retained platform state, surface lifecycle and native control integration. Per-platform batching and damage tracking remain backend implementation details.
 
-Phaser preview runs through the separate Web target in a normal browser and does not require an embedded browser engine in the native host. The selected native rendering model remains NSH-inspired and per-platform.
+Browser-only workloads run through the separate Web target in a normal browser and do not require an embedded browser engine in the native host. The selected native rendering model remains NSH-inspired and per-platform.
 
 These backends/components should be implemented only after MountBatch, normalized rendering, input and accessibility interfaces are stable.
 
