@@ -354,7 +354,7 @@ export class HostBatchEncoder {
     this.assertWritable();
     if (this.operations.length === 0) return undefined;
     const apply = globalThis.__sn_apply_batch;
-    if (!apply) throw new Error("Native host batch binding is not installed");
+    if (!apply) this.abortAfterFailure(new Error("Native host batch binding is not installed"));
 
     let bytes: Uint8Array;
     try {
