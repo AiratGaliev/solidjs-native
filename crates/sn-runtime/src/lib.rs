@@ -4,8 +4,8 @@
 //! dedicated engine thread. Host/platform callers interact only through
 //! bounded commands and plain Rust values; QuickJS handles never cross threads.
 
-mod host;
 pub mod clock;
+mod host;
 mod scheduler;
 mod session;
 

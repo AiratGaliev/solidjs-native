@@ -3,9 +3,9 @@ use std::{
     collections::{BTreeMap, HashSet, VecDeque},
     fmt,
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError, TrySendError},
-        Arc, Mutex,
     },
     thread::{self, JoinHandle, ThreadId},
     time::{Duration, Instant},
@@ -111,7 +111,9 @@ impl fmt::Display for SessionError {
             Self::QueueFull => write!(f, "EngineSession command queue is full"),
             Self::Closed => write!(f, "EngineSession is closing or closed"),
             Self::Cancelled => write!(f, "EngineSession task was cancelled"),
-            Self::InvalidConfig(message) => write!(f, "Invalid EngineSession configuration: {message}"),
+            Self::InvalidConfig(message) => {
+                write!(f, "Invalid EngineSession configuration: {message}")
+            }
             Self::PayloadTooLarge { actual, limit } => {
                 write!(f, "Payload is {actual} bytes; configured limit is {limit}")
             }
@@ -189,7 +191,11 @@ impl TaskRegistry {
     fn finish<T>(&mut self, id: u64, result: Result<T, SessionError>) -> Result<T, SessionError> {
         let was_cancelled = self.cancelled.remove(&id);
         self.active.remove(&id);
-        if was_cancelled { Err(SessionError::Cancelled) } else { result }
+        if was_cancelled {
+            Err(SessionError::Cancelled)
+        } else {
+            result
+        }
     }
 }
 
@@ -201,14 +207,21 @@ struct SessionCleanupRegistry {
 
 impl Default for SessionCleanupRegistry {
     fn default() -> Self {
-        Self { next_id: 1, callbacks: BTreeMap::new(), closed: false }
+        Self {
+            next_id: 1,
+            callbacks: BTreeMap::new(),
+            closed: false,
+        }
     }
 }
 
 impl SessionCleanupRegistry {
     fn take_all_reverse(&mut self) -> Vec<Persistent<Function<'static>>> {
         self.closed = true;
-        std::mem::take(&mut self.callbacks).into_values().rev().collect()
+        std::mem::take(&mut self.callbacks)
+            .into_values()
+            .rev()
+            .collect()
     }
 }
 
@@ -230,7 +243,9 @@ impl<T> TaskTicket<T> {
     }
 
     pub fn wait(self) -> Result<T, SessionError> {
-        self.response.recv().unwrap_or(Err(SessionError::ResponseLost))
+        self.response
+            .recv()
+            .unwrap_or(Err(SessionError::ResponseLost))
     }
 
     pub fn wait_timeout(&self, timeout: Duration) -> Result<T, SessionError> {
@@ -287,20 +302,21 @@ impl EngineSessionHandle {
             });
         }
 
-        let reserved = self.pending_commands.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |pending| (pending < self.queue_capacity).then_some(pending + 1),
-        );
+        let reserved =
+            self.pending_commands
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
+                    (pending < self.queue_capacity).then_some(pending + 1)
+                });
         if reserved.is_err() {
             return Err(SessionError::QueueFull);
         }
-        let byte_reservation = self.pending_queue_bytes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |pending| pending.checked_add(payload_bytes)
-                .filter(|total| *total <= self.max_queued_bytes),
-        );
+        let byte_reservation =
+            self.pending_queue_bytes
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
+                    pending
+                        .checked_add(payload_bytes)
+                        .filter(|total| *total <= self.max_queued_bytes)
+                });
         if byte_reservation.is_err() {
             self.pending_commands.fetch_sub(1, Ordering::AcqRel);
             return Err(SessionError::QueueFull);
@@ -310,7 +326,8 @@ impl EngineSessionHandle {
             Ok(id) => id,
             Err(error) => {
                 self.pending_commands.fetch_sub(1, Ordering::AcqRel);
-                self.pending_queue_bytes.fetch_sub(payload_bytes, Ordering::AcqRel);
+                self.pending_queue_bytes
+                    .fetch_sub(payload_bytes, Ordering::AcqRel);
                 return Err(error);
             }
         };
@@ -325,13 +342,15 @@ impl EngineSessionHandle {
             Err(TrySendError::Full(_)) => {
                 lock_recover(&self.tasks).active.remove(&task_id);
                 self.pending_commands.fetch_sub(1, Ordering::AcqRel);
-                self.pending_queue_bytes.fetch_sub(payload_bytes, Ordering::AcqRel);
+                self.pending_queue_bytes
+                    .fetch_sub(payload_bytes, Ordering::AcqRel);
                 Err(SessionError::QueueFull)
             }
             Err(TrySendError::Disconnected(_)) => {
                 lock_recover(&self.tasks).active.remove(&task_id);
                 self.pending_commands.fetch_sub(1, Ordering::AcqRel);
-                self.pending_queue_bytes.fetch_sub(payload_bytes, Ordering::AcqRel);
+                self.pending_queue_bytes
+                    .fetch_sub(payload_bytes, Ordering::AcqRel);
                 Err(SessionError::Closed)
             }
         }
@@ -344,7 +363,11 @@ impl EngineSessionHandle {
         source: impl Into<String>,
     ) -> Result<TaskTicket<RuntimeSnapshot>, SessionError> {
         let source = source.into();
-        self.enqueue(source.len(), |id, response| Command::Evaluate { id, source, response })
+        self.enqueue(source.len(), |id, response| Command::Evaluate {
+            id,
+            source,
+            response,
+        })
     }
 
     /// Evaluates an expression which must return a JavaScript string. Useful
@@ -354,12 +377,23 @@ impl EngineSessionHandle {
         source: impl Into<String>,
     ) -> Result<TaskTicket<String>, SessionError> {
         let source = source.into();
-        self.enqueue(source.len(), |id, response| Command::EvaluateText { id, source, response })
+        self.enqueue(source.len(), |id, response| Command::EvaluateText {
+            id,
+            source,
+            response,
+        })
     }
 
-    pub fn find_element(&self, tag: impl Into<String>) -> Result<TaskTicket<Option<u64>>, SessionError> {
+    pub fn find_element(
+        &self,
+        tag: impl Into<String>,
+    ) -> Result<TaskTicket<Option<u64>>, SessionError> {
         let tag = tag.into();
-        self.enqueue(tag.len(), |id, response| Command::FindElement { id, tag, response })
+        self.enqueue(tag.len(), |id, response| Command::FindElement {
+            id,
+            tag,
+            response,
+        })
     }
 
     pub fn dispatch_event(
@@ -378,10 +412,7 @@ impl EngineSessionHandle {
 
     /// Delivers a platform frame notification. RAF callbacks are coalesced and
     /// invoked in request order on the owner thread.
-    pub fn deliver_frame(
-        &self,
-        timestamp: Duration,
-    ) -> Result<TaskTicket<usize>, SessionError> {
+    pub fn deliver_frame(&self, timestamp: Duration) -> Result<TaskTicket<usize>, SessionError> {
         self.enqueue(0, |id, response| Command::Frame {
             id,
             timestamp,
@@ -412,7 +443,11 @@ impl EngineSessionHandle {
     }
 
     pub fn cancel_timer(&self, timer_id: u32) -> Result<TaskTicket<bool>, SessionError> {
-        self.enqueue(0, |id, response| Command::CancelTimer { id, timer_id, response })
+        self.enqueue(0, |id, response| Command::CancelTimer {
+            id,
+            timer_id,
+            response,
+        })
     }
 
     pub fn snapshot(&self) -> Result<TaskTicket<RuntimeSnapshot>, SessionError> {
@@ -463,7 +498,9 @@ impl EngineSession {
             active_turn: Arc::new(AtomicU64::new(0)),
             frame_requested: Arc::new(AtomicBool::new(false)),
             tasks: Arc::new(Mutex::new(TaskRegistry::default())),
-            diagnostics: Arc::new(Mutex::new(VecDeque::with_capacity(MAX_RETAINED_DIAGNOSTICS))),
+            diagnostics: Arc::new(Mutex::new(VecDeque::with_capacity(
+                MAX_RETAINED_DIAGNOSTICS,
+            ))),
             owner_thread: Arc::new(Mutex::new(None)),
         };
 
@@ -476,10 +513,15 @@ impl EngineSession {
                 config.session_generation.get()
             ))
             .spawn(move || worker_main(config, receiver, worker_handle, ready_tx))
-            .map_err(|error| SessionError::Runtime(format!("failed to spawn engine thread: {error}")))?;
+            .map_err(|error| {
+                SessionError::Runtime(format!("failed to spawn engine thread: {error}"))
+            })?;
 
         match ready_rx.recv() {
-            Ok(Ok(())) => Ok(Self { handle, worker: Some(worker) }),
+            Ok(Ok(())) => Ok(Self {
+                handle,
+                worker: Some(worker),
+            }),
             Ok(Err(error)) => {
                 let _ = worker.join();
                 Err(error)
@@ -501,15 +543,23 @@ impl EngineSession {
         {
             let _gate = lock_recover(&self.handle.submission_gate);
             self.handle.closed.store(true, Ordering::Release);
-            self.handle.shutdown_requested.store(true, Ordering::Release);
-            self.handle.sender.try_send(Command::Shutdown(Some(response_tx)))
+            self.handle
+                .shutdown_requested
+                .store(true, Ordering::Release);
+            self.handle
+                .sender
+                .try_send(Command::Shutdown(Some(response_tx)))
                 .map_err(|error| match error {
-                    TrySendError::Full(_) => SessionError::Runtime("Reserved shutdown queue slot is unexpectedly full".into()),
+                    TrySendError::Full(_) => SessionError::Runtime(
+                        "Reserved shutdown queue slot is unexpectedly full".into(),
+                    ),
                     TrySendError::Disconnected(_) => SessionError::Closed,
                 })?;
         }
 
-        let result = response_rx.recv().unwrap_or(Err(SessionError::ResponseLost));
+        let result = response_rx
+            .recv()
+            .unwrap_or(Err(SessionError::ResponseLost));
         self.join_worker()?;
         result
     }
@@ -526,7 +576,9 @@ impl Drop for EngineSession {
     fn drop(&mut self) {
         let _gate = lock_recover(&self.handle.submission_gate);
         self.handle.closed.store(true, Ordering::Release);
-        self.handle.shutdown_requested.store(true, Ordering::Release);
+        self.handle
+            .shutdown_requested
+            .store(true, Ordering::Release);
         let _ = self.handle.sender.try_send(Command::Shutdown(None));
         // Dropping JoinHandle detaches; Drop must never block a platform/UI caller.
         self.worker.take();
@@ -685,11 +737,14 @@ impl RuntimeWorker {
                 move |_ctx, _promise, reason, is_handled| {
                     let (message, stack) = match Exception::from_value(reason.clone()) {
                         Ok(exception) => (
-                            exception.message().unwrap_or_else(|| "Promise rejected with an Error".into()),
+                            exception
+                                .message()
+                                .unwrap_or_else(|| "Promise rejected with an Error".into()),
                             exception.stack(),
                         ),
                         Err(_) => {
-                            let message = reason.as_string()
+                            let message = reason
+                                .as_string()
                                 .and_then(|value| value.to_string().ok())
                                 .unwrap_or_else(|| format!("{reason:?}"));
                             (message, None)
@@ -714,7 +769,8 @@ impl RuntimeWorker {
             config.surface_id,
             config.session_generation,
         )));
-        let scheduler = std::rc::Rc::new(RefCell::new(SchedulerState::new(frame_requested.clone())));
+        let scheduler =
+            std::rc::Rc::new(RefCell::new(SchedulerState::new(frame_requested.clone())));
         let cleanup = std::rc::Rc::new(RefCell::new(SessionCleanupRegistry::default()));
 
         context
@@ -722,7 +778,8 @@ impl RuntimeWorker {
                 host::install_host_bindings(ctx.clone(), host.clone())?;
                 scheduler::install_bindings(ctx.clone(), scheduler.clone(), config.clock.clone())?;
                 install_cleanup_binding(ctx.clone(), cleanup.clone())?;
-                ctx.globals().set("__solid_native_runtime__", "QuickJS-NG")?;
+                ctx.globals()
+                    .set("__solid_native_runtime__", "QuickJS-NG")?;
                 Ok(())
             })
             .map_err(runtime_error)?;
@@ -743,39 +800,51 @@ impl RuntimeWorker {
     }
 
     fn snapshot(&self) -> Result<RuntimeSnapshot, SessionError> {
-        let host = self.host.try_borrow()
+        let host = self
+            .host
+            .try_borrow()
             .map_err(|_| SessionError::Runtime("Host state is already borrowed".into()))?;
         let last_commit = host.sink().commits().back();
         let has_operation = |predicate: fn(&sn_core::HostOperation) -> bool| {
             last_commit.is_some_and(|commit| commit.delta.iter().any(predicate))
         };
-        let has_view = has_operation(|operation| matches!(
-            operation,
-            sn_core::HostOperation::CreateElement { tag, .. } if tag == "view"
-        ));
-        let has_button = has_operation(|operation| matches!(
-            operation,
-            sn_core::HostOperation::CreateElement { tag, .. } if tag == "button"
-        ));
-        let has_initial_count = has_operation(|operation| matches!(
-            operation,
-            sn_core::HostOperation::CreateText { text, .. } if text == "Count: 0"
-        ));
-        let has_click_binding = has_operation(|operation| matches!(
-            operation,
-            sn_core::HostOperation::BindEvent { event, .. } if event == "click"
-        ));
-        let has_insert = has_operation(|operation| matches!(
-            operation,
-            sn_core::HostOperation::InsertNode { .. }
-        ));
-        let last_commit_replace_text_count = last_commit.map_or(0, |commit| {
-            commit.delta.iter().filter(|operation| matches!(
+        let has_view = has_operation(|operation| {
+            matches!(
                 operation,
-                sn_core::HostOperation::ReplaceText { .. }
-            )).count()
+                sn_core::HostOperation::CreateElement { tag, .. } if tag == "view"
+            )
         });
-        let counter_text = host.tree.find_text_containing("Count:")
+        let has_button = has_operation(|operation| {
+            matches!(
+                operation,
+                sn_core::HostOperation::CreateElement { tag, .. } if tag == "button"
+            )
+        });
+        let has_initial_count = has_operation(|operation| {
+            matches!(
+                operation,
+                sn_core::HostOperation::CreateText { text, .. } if text == "Count: 0"
+            )
+        });
+        let has_click_binding = has_operation(|operation| {
+            matches!(
+                operation,
+                sn_core::HostOperation::BindEvent { event, .. } if event == "click"
+            )
+        });
+        let has_insert = has_operation(|operation| {
+            matches!(operation, sn_core::HostOperation::InsertNode { .. })
+        });
+        let last_commit_replace_text_count = last_commit.map_or(0, |commit| {
+            commit
+                .delta
+                .iter()
+                .filter(|operation| matches!(operation, sn_core::HostOperation::ReplaceText { .. }))
+                .count()
+        });
+        let counter_text = host
+            .tree
+            .find_text_containing("Count:")
             .and_then(|id| host.tree.text_content(id).ok())
             .map(str::to_owned);
         Ok(RuntimeSnapshot {
@@ -816,14 +885,14 @@ impl RuntimeWorker {
     }
 
     fn record_js_error(&self, error: &rquickjs::Error, kind: DiagnosticKind) {
-        self.context.with(|ctx| {
-            record_exception(&ctx, error, &self.diagnostics, &self.config.clock, kind)
-        });
+        self.context
+            .with(|ctx| record_exception(&ctx, error, &self.diagnostics, &self.config.clock, kind));
     }
 
     fn set_turn(&self, id: u64) {
         self.active_turn.store(id, Ordering::Release);
-        self.deadline.set(Some(Instant::now() + self.config.max_execution_time));
+        self.deadline
+            .set(Some(Instant::now() + self.config.max_execution_time));
     }
 
     fn end_turn(&self) {
@@ -850,7 +919,8 @@ impl RuntimeWorker {
 
     fn flush_host_batch(&self) -> Result<(), SessionError> {
         let result = self.context.with(|ctx| -> rquickjs::Result<()> {
-            let exists: bool = ctx.eval("typeof globalThis.__sn_flush_host_batch === 'function'")?;
+            let exists: bool =
+                ctx.eval("typeof globalThis.__sn_flush_host_batch === 'function'")?;
             if exists {
                 let flush: Function = ctx.globals().get("__sn_flush_host_batch")?;
                 let _: Value = flush.call(())?;
@@ -872,7 +942,8 @@ impl RuntimeWorker {
             && self.runtime.is_job_pending()
         {
             self.active_turn.store(task_id, Ordering::Release);
-            self.deadline.set(Some(Instant::now() + self.config.max_execution_time));
+            self.deadline
+                .set(Some(Instant::now() + self.config.max_execution_time));
             let result = self.runtime.execute_pending_job();
             self.deadline.set(None);
             self.active_turn.store(0, Ordering::Release);
@@ -911,7 +982,10 @@ impl RuntimeWorker {
         {
             self.record(
                 DiagnosticKind::SchedulerBudgetExhausted,
-                format!("Promise job slice yielded after {executed} jobs and {:?}", started.elapsed()),
+                format!(
+                    "Promise job slice yielded after {executed} jobs and {:?}",
+                    started.elapsed()
+                ),
                 None,
                 None,
             );
@@ -957,17 +1031,24 @@ impl RuntimeWorker {
 
     fn find_element(&self, id: u64, tag: &str) -> Result<Option<u64>, SessionError> {
         self.check_cancelled(id)?;
-        let host = self.host.try_borrow()
+        let host = self
+            .host
+            .try_borrow()
             .map_err(|_| SessionError::Runtime("Host state is already borrowed".into()))?;
         Ok(host.tree.find_element(tag).map(|node_id| node_id.get()))
     }
 
-    fn dispatch_event(&self, id: u64, node_id: u64, event_name: &str) -> Result<bool, SessionError> {
+    fn dispatch_event(
+        &self,
+        id: u64,
+        node_id: u64,
+        event_name: &str,
+    ) -> Result<bool, SessionError> {
         self.check_cancelled(id)?;
         self.set_turn(id);
-        let result = self.context.with(|ctx| {
-            host::dispatch_event(&ctx, &self.host, NodeId::new(node_id), event_name)
-        });
+        let result = self
+            .context
+            .with(|ctx| host::dispatch_event(&ctx, &self.host, NodeId::new(node_id), event_name));
         self.end_turn();
 
         let dispatched = match result {
@@ -990,7 +1071,9 @@ impl RuntimeWorker {
     fn deliver_frame(&self, id: u64, timestamp: Duration) -> Result<usize, SessionError> {
         self.check_cancelled(id)?;
         self.check_cancelled(id)?;
-        let cutoff = self.scheduler.try_borrow_mut()
+        let cutoff = self
+            .scheduler
+            .try_borrow_mut()
             .map_err(|_| SessionError::Runtime("Scheduler state is already borrowed".into()))?
             .begin_frame();
         let Some(cutoff) = cutoff else {
@@ -1001,7 +1084,9 @@ impl RuntimeWorker {
         loop {
             // Take only one callback at a time. A previous callback can still
             // cancel a later callback from the same frame before it starts.
-            let callback = self.scheduler.try_borrow_mut()
+            let callback = self
+                .scheduler
+                .try_borrow_mut()
                 .map_err(|_| SessionError::Runtime("Scheduler state is already borrowed".into()))?
                 .take_next_frame_callback(cutoff);
             let Some((_callback_id, callback)) = callback else {
@@ -1010,9 +1095,9 @@ impl RuntimeWorker {
 
             self.set_turn(id);
             let timestamp_ms = timestamp.as_secs_f64() * 1000.0;
-            let result = self.context.with(|ctx| {
-                callback.restore(&ctx)?.call::<_, ()>((timestamp_ms,))
-            });
+            let result = self
+                .context
+                .with(|ctx| callback.restore(&ctx)?.call::<_, ()>((timestamp_ms,)));
             self.end_turn();
             if let Err(error) = result {
                 self.record_js_error(&error, DiagnosticKind::JavaScriptException);
@@ -1032,7 +1117,9 @@ impl RuntimeWorker {
         payload: &[u8],
     ) -> Result<bool, SessionError> {
         self.check_cancelled(id)?;
-        let callback = self.scheduler.try_borrow_mut()
+        let callback = self
+            .scheduler
+            .try_borrow_mut()
             .map_err(|_| SessionError::Runtime("Scheduler state is already borrowed".into()))?
             .take_completion(callback_id);
 
@@ -1066,14 +1153,19 @@ impl RuntimeWorker {
 
     fn fire_due_timer(&self, task_id: u64) -> bool {
         let now = self.config.clock.now();
-        let callback = self.scheduler.try_borrow_mut().ok()
+        let callback = self
+            .scheduler
+            .try_borrow_mut()
+            .ok()
             .and_then(|mut state| state.take_due_timer(now));
         let Some((_timer_id, callback)) = callback else {
             return false;
         };
 
         self.set_turn(task_id);
-        let result = self.context.with(|ctx| callback.restore(&ctx)?.call::<_, ()>(()));
+        let result = self
+            .context
+            .with(|ctx| callback.restore(&ctx)?.call::<_, ()>(()));
         self.end_turn();
         if let Err(error) = result {
             self.record_js_error(&error, DiagnosticKind::JavaScriptException);
@@ -1084,12 +1176,16 @@ impl RuntimeWorker {
     }
 
     fn next_timer_deadline(&self) -> Option<Duration> {
-        self.scheduler.try_borrow_mut().ok()
+        self.scheduler
+            .try_borrow_mut()
+            .ok()
             .and_then(|mut scheduler| scheduler.next_deadline())
     }
 
     fn cancel_timer(&self, timer_id: u32) -> Result<bool, SessionError> {
-        let mut scheduler = self.scheduler.try_borrow_mut()
+        let mut scheduler = self
+            .scheduler
+            .try_borrow_mut()
             .map_err(|_| SessionError::Runtime("Scheduler state is already borrowed".into()))?;
         Ok(scheduler.clear_timer(timer_id))
     }
@@ -1098,15 +1194,23 @@ impl RuntimeWorker {
         // The active JS turn has now returned to the owner loop. Re-enable JS
         // execution only for deterministic teardown callbacks on this thread.
         self.shutdown_requested.store(false, Ordering::Release);
-        self.record(DiagnosticKind::Shutdown, "EngineSession shutdown started", None, None);
+        self.record(
+            DiagnosticKind::Shutdown,
+            "EngineSession shutdown started",
+            None,
+            None,
+        );
 
-        self.scheduler.try_borrow_mut()
+        self.scheduler
+            .try_borrow_mut()
             .map_err(|_| SessionError::Runtime("Scheduler state is already borrowed".into()))?
             .cancel_timers_and_frames();
 
         let cleanups = self.cleanup.borrow_mut().take_all_reverse();
         for cleanup in cleanups {
-            let result = self.context.with(|ctx| cleanup.restore(&ctx)?.call::<_, ()>(()));
+            let result = self
+                .context
+                .with(|ctx| cleanup.restore(&ctx)?.call::<_, ()>(()));
             if let Err(error) = result {
                 self.record_js_error(&error, DiagnosticKind::JavaScriptException);
             }
@@ -1137,33 +1241,45 @@ fn install_cleanup_binding<'js>(
     let register = Function::new(ctx.clone(), {
         let cleanup = cleanup.clone();
         move |ctx: rquickjs::Ctx<'js>, callback: Function<'js>| -> rquickjs::Result<u32> {
-            let mut registry = cleanup.try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Session cleanup registry is already borrowed"))?;
+            let mut registry = cleanup.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Session cleanup registry is already borrowed")
+            })?;
             if registry.closed {
-                return Err(Exception::throw_type(&ctx, "EngineSession is shutting down"));
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "EngineSession is shutting down",
+                ));
             }
             if registry.callbacks.len() >= MAX_SESSION_CLEANUPS {
-                return Err(Exception::throw_range(&ctx, "Too many session cleanup callbacks"));
+                return Err(Exception::throw_range(
+                    &ctx,
+                    "Too many session cleanup callbacks",
+                ));
             }
             let id = registry.next_id;
-            registry.next_id = registry.next_id
-                .checked_add(1)
-                .ok_or_else(|| Exception::throw_range(&ctx, "Session cleanup id space exhausted"))?;
-            registry.callbacks.insert(id, Persistent::save(&ctx, callback));
+            registry.next_id = registry.next_id.checked_add(1).ok_or_else(|| {
+                Exception::throw_range(&ctx, "Session cleanup id space exhausted")
+            })?;
+            registry
+                .callbacks
+                .insert(id, Persistent::save(&ctx, callback));
             Ok(id)
         }
     })?;
-    ctx.globals().set("__sn_register_session_cleanup", register)?;
+    ctx.globals()
+        .set("__sn_register_session_cleanup", register)?;
 
     let unregister = Function::new(ctx.clone(), {
         let cleanup = cleanup.clone();
         move |ctx: rquickjs::Ctx<'js>, id: u32| -> rquickjs::Result<bool> {
-            let mut registry = cleanup.try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Session cleanup registry is already borrowed"))?;
+            let mut registry = cleanup.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Session cleanup registry is already borrowed")
+            })?;
             Ok(registry.callbacks.remove(&id).is_some())
         }
     })?;
-    ctx.globals().set("__sn_unregister_session_cleanup", unregister)?;
+    ctx.globals()
+        .set("__sn_unregister_session_cleanup", unregister)?;
     Ok(())
 }
 
@@ -1180,7 +1296,9 @@ fn run_event_loop(
                 let is_shutdown = matches!(&command, Command::Shutdown(_));
                 if !is_shutdown {
                     handle.pending_commands.fetch_sub(1, Ordering::AcqRel);
-                    handle.pending_queue_bytes.fetch_sub(command.payload_bytes(), Ordering::AcqRel);
+                    handle
+                        .pending_queue_bytes
+                        .fetch_sub(command.payload_bytes(), Ordering::AcqRel);
                 }
                 let response = if handle.closed.load(Ordering::Acquire) && !is_shutdown {
                     reject_closed_command(command, &worker.tasks);
@@ -1211,7 +1329,10 @@ fn run_event_loop(
         commands_since_job_slice = 0;
 
         let now = worker.config.clock.now();
-        if worker.next_timer_deadline().is_some_and(|deadline| deadline <= now) {
+        if worker
+            .next_timer_deadline()
+            .is_some_and(|deadline| deadline <= now)
+        {
             worker.fire_due_timer(0);
             continue;
         }
@@ -1226,7 +1347,8 @@ fn run_event_loop(
             break;
         }
 
-        let timeout = worker.next_timer_deadline()
+        let timeout = worker
+            .next_timer_deadline()
             .map(|deadline| deadline.saturating_sub(worker.config.clock.now()))
             .unwrap_or(MAX_IDLE_WAIT)
             .min(MAX_IDLE_WAIT);
@@ -1236,7 +1358,9 @@ fn run_event_loop(
                 let is_shutdown = matches!(&command, Command::Shutdown(_));
                 if !is_shutdown {
                     handle.pending_commands.fetch_sub(1, Ordering::AcqRel);
-                    handle.pending_queue_bytes.fetch_sub(command.payload_bytes(), Ordering::AcqRel);
+                    handle
+                        .pending_queue_bytes
+                        .fetch_sub(command.payload_bytes(), Ordering::AcqRel);
                 }
                 let response = if handle.closed.load(Ordering::Acquire) && !is_shutdown {
                     reject_closed_command(command, &worker.tasks);
@@ -1267,12 +1391,20 @@ fn process_command(
     command: Command,
 ) -> Option<SyncSender<Result<(), SessionError>>> {
     match command {
-        Command::Evaluate { id, source, response } => {
+        Command::Evaluate {
+            id,
+            source,
+            response,
+        } => {
             let result = finish_task(&worker.tasks, id, worker.evaluate(id, &source));
             let _ = response.send(result);
             None
         }
-        Command::EvaluateText { id, source, response } => {
+        Command::EvaluateText {
+            id,
+            source,
+            response,
+        } => {
             let result = finish_task(&worker.tasks, id, worker.evaluate_text(id, &source));
             let _ = response.send(result);
             None
@@ -1282,39 +1414,79 @@ fn process_command(
             let _ = response.send(result);
             None
         }
-        Command::DispatchEvent { id, node_id, event_name, response } => {
-            let result = finish_task(&worker.tasks, id, worker.dispatch_event(id, node_id, &event_name));
+        Command::DispatchEvent {
+            id,
+            node_id,
+            event_name,
+            response,
+        } => {
+            let result = finish_task(
+                &worker.tasks,
+                id,
+                worker.dispatch_event(id, node_id, &event_name),
+            );
             let _ = response.send(result);
             None
         }
-        Command::Frame { id, timestamp, response } => {
+        Command::Frame {
+            id,
+            timestamp,
+            response,
+        } => {
             let result = finish_task(&worker.tasks, id, worker.deliver_frame(id, timestamp));
             let _ = response.send(result);
             None
         }
-        Command::Completion { id, callback_id, payload, response } => {
-            let result = finish_task(&worker.tasks, id, worker.deliver_completion(id, callback_id, &payload));
+        Command::Completion {
+            id,
+            callback_id,
+            payload,
+            response,
+        } => {
+            let result = finish_task(
+                &worker.tasks,
+                id,
+                worker.deliver_completion(id, callback_id, &payload),
+            );
             let _ = response.send(result);
             None
         }
-        Command::CancelTimer { id, timer_id, response } => {
-            let result = finish_task(&worker.tasks, id, worker.check_cancelled(id).and_then(|()| worker.cancel_timer(timer_id)));
+        Command::CancelTimer {
+            id,
+            timer_id,
+            response,
+        } => {
+            let result = finish_task(
+                &worker.tasks,
+                id,
+                worker
+                    .check_cancelled(id)
+                    .and_then(|()| worker.cancel_timer(timer_id)),
+            );
             let _ = response.send(result);
             None
         }
         Command::Snapshot { id, response } => {
-            let result = finish_task(&worker.tasks, id, worker.check_cancelled(id).and_then(|()| worker.snapshot()));
+            let result = finish_task(
+                &worker.tasks,
+                id,
+                worker.check_cancelled(id).and_then(|()| worker.snapshot()),
+            );
             let _ = response.send(result);
             None
         }
         Command::Pump { id, response } => {
-            let result = finish_task(&worker.tasks, id, worker.check_cancelled(id).map(|()| {
-                let fired = worker.fire_due_timer(id);
-                if worker.runtime.is_job_pending() {
-                    worker.drain_job_slice(id);
-                }
-                fired
-            }));
+            let result = finish_task(
+                &worker.tasks,
+                id,
+                worker.check_cancelled(id).map(|()| {
+                    let fired = worker.fire_due_timer(id);
+                    if worker.runtime.is_job_pending() {
+                        worker.drain_job_slice(id);
+                    }
+                    fired
+                }),
+            );
             let _ = response.send(result);
             None
         }
@@ -1438,7 +1610,9 @@ fn runtime_error(error: impl fmt::Display) -> SessionError {
 }
 
 fn lock_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 #[cfg(test)]
@@ -1447,7 +1621,10 @@ mod tests {
     use crate::clock::ManualClock;
 
     fn config(clock: Arc<dyn RuntimeClock>) -> EngineSessionConfig {
-        EngineSessionConfig { clock, ..EngineSessionConfig::default() }
+        EngineSessionConfig {
+            clock,
+            ..EngineSessionConfig::default()
+        }
     }
 
     #[test]
@@ -1456,8 +1633,19 @@ mod tests {
         let handle = session.handle();
         assert!(!handle.is_owner_thread());
 
-        handle.evaluate("globalThis.ready = true;").unwrap().wait().unwrap();
-        assert_eq!(handle.evaluate_text("String(ready)").unwrap().wait().unwrap(), "true");
+        handle
+            .evaluate("globalThis.ready = true;")
+            .unwrap()
+            .wait()
+            .unwrap();
+        assert_eq!(
+            handle
+                .evaluate_text("String(ready)")
+                .unwrap()
+                .wait()
+                .unwrap(),
+            "true"
+        );
         session.shutdown().unwrap();
     }
 
@@ -1469,7 +1657,11 @@ mod tests {
             "globalThis.order = []; order.push('sync'); Promise.resolve().then(() => order.push('promise')); queueMicrotask(() => order.push('microtask')); order.push('end');",
         ).unwrap().wait().unwrap();
         assert_eq!(
-            handle.evaluate_text("order.join(',')").unwrap().wait().unwrap(),
+            handle
+                .evaluate_text("order.join(',')")
+                .unwrap()
+                .wait()
+                .unwrap(),
             "sync,end,promise,microtask"
         );
         session.shutdown().unwrap();
@@ -1480,14 +1672,32 @@ mod tests {
         let clock = Arc::new(ManualClock::default());
         let session = EngineSession::start(config(clock.clone())).unwrap();
         let handle = session.handle();
-        handle.evaluate(
-            "globalThis.timerHits = 0; globalThis.timerId = setTimeout(() => timerHits++, 5);",
-        ).unwrap().wait().unwrap();
-        assert_eq!(handle.evaluate_text("String(timerId)").unwrap().wait().unwrap(), "1");
+        handle
+            .evaluate(
+                "globalThis.timerHits = 0; globalThis.timerId = setTimeout(() => timerHits++, 5);",
+            )
+            .unwrap()
+            .wait()
+            .unwrap();
+        assert_eq!(
+            handle
+                .evaluate_text("String(timerId)")
+                .unwrap()
+                .wait()
+                .unwrap(),
+            "1"
+        );
         assert!(handle.cancel_timer(1).unwrap().wait().unwrap());
         clock.advance(Duration::from_millis(10));
         assert!(!handle.pump().unwrap().wait().unwrap());
-        assert_eq!(handle.evaluate_text("String(timerHits)").unwrap().wait().unwrap(), "0");
+        assert_eq!(
+            handle
+                .evaluate_text("String(timerHits)")
+                .unwrap()
+                .wait()
+                .unwrap(),
+            "0"
+        );
         session.shutdown().unwrap();
     }
 
@@ -1496,12 +1706,21 @@ mod tests {
         let clock = Arc::new(ManualClock::default());
         let session = EngineSession::start(config(clock.clone())).unwrap();
         let handle = session.handle();
-        handle.evaluate(
-            "globalThis.timerHits = 0; setTimeout(() => timerHits++, 5);",
-        ).unwrap().wait().unwrap();
+        handle
+            .evaluate("globalThis.timerHits = 0; setTimeout(() => timerHits++, 5);")
+            .unwrap()
+            .wait()
+            .unwrap();
         clock.advance(Duration::from_millis(5));
         let _ = handle.pump().unwrap().wait().unwrap();
-        assert_eq!(handle.evaluate_text("String(timerHits)").unwrap().wait().unwrap(), "1");
+        assert_eq!(
+            handle
+                .evaluate_text("String(timerHits)")
+                .unwrap()
+                .wait()
+                .unwrap(),
+            "1"
+        );
         session.shutdown().unwrap();
     }
 
@@ -1514,12 +1733,20 @@ mod tests {
         ).unwrap().wait().unwrap();
         assert!(handle.frame_requested());
         assert_eq!(
-            handle.deliver_frame(Duration::from_millis(16)).unwrap().wait().unwrap(),
+            handle
+                .deliver_frame(Duration::from_millis(16))
+                .unwrap()
+                .wait()
+                .unwrap(),
             2
         );
         assert!(!handle.frame_requested());
         assert_eq!(
-            handle.evaluate_text("frames.join(',')").unwrap().wait().unwrap(),
+            handle
+                .evaluate_text("frames.join(',')")
+                .unwrap()
+                .wait()
+                .unwrap(),
             "first:16,last:16"
         );
         session.shutdown().unwrap();
@@ -1532,10 +1759,20 @@ mod tests {
         handle.evaluate(
             "globalThis.completionBytes = 0; __sn_register_completion_callback(7, bytes => { completionBytes = bytes.length; });",
         ).unwrap().wait().unwrap();
-        assert!(handle.post_completion(7, vec![1, 2, 3]).unwrap().wait().unwrap());
+        assert!(
+            handle
+                .post_completion(7, vec![1, 2, 3])
+                .unwrap()
+                .wait()
+                .unwrap()
+        );
         assert!(!handle.post_completion(7, vec![1]).unwrap().wait().unwrap());
         assert_eq!(
-            handle.evaluate_text("String(completionBytes)").unwrap().wait().unwrap(),
+            handle
+                .evaluate_text("String(completionBytes)")
+                .unwrap()
+                .wait()
+                .unwrap(),
             "3"
         );
         session.shutdown().unwrap();
@@ -1551,11 +1788,18 @@ mod tests {
         handle.evaluate(
             "globalThis.chainCount = 0; const step = () => { chainCount++; Promise.resolve().then(step); }; Promise.resolve().then(step);",
         ).unwrap().wait().unwrap();
-        assert!(handle.take_diagnostics().iter().any(|entry| {
-            entry.kind == DiagnosticKind::SchedulerBudgetExhausted
-        }));
+        assert!(
+            handle
+                .take_diagnostics()
+                .iter()
+                .any(|entry| { entry.kind == DiagnosticKind::SchedulerBudgetExhausted })
+        );
 
-        handle.evaluate("Promise.reject(new Error('expected rejection'));").unwrap().wait().unwrap();
+        handle
+            .evaluate("Promise.reject(new Error('expected rejection'));")
+            .unwrap()
+            .wait()
+            .unwrap();
         assert!(handle.take_diagnostics().iter().any(|entry| {
             entry.kind == DiagnosticKind::PromiseRejection
                 && entry.handled == Some(false)
@@ -1597,10 +1841,7 @@ mod tests {
             handle.evaluate("globalThis.value = 123;"),
             Err(SessionError::PayloadTooLarge { actual, limit: 8 }) if actual > 8
         ));
-        assert_eq!(
-            handle.evaluate_text("''").unwrap().wait().unwrap(),
-            ""
-        );
+        assert_eq!(handle.evaluate_text("''").unwrap().wait().unwrap(), "");
         session.shutdown().unwrap();
     }
 
@@ -1629,7 +1870,10 @@ mod tests {
 
         let start_deadline = Instant::now() + Duration::from_secs(2);
         while handle.active_turn.load(Ordering::Acquire) != ticket.task_id() {
-            assert!(Instant::now() < start_deadline, "script did not enter its active JS turn");
+            assert!(
+                Instant::now() < start_deadline,
+                "script did not enter its active JS turn"
+            );
             thread::yield_now();
         }
 
@@ -1653,7 +1897,10 @@ mod tests {
         let ticket = handle.evaluate("while (true) {}").unwrap();
         let start_deadline = Instant::now() + Duration::from_secs(2);
         while handle.active_turn.load(Ordering::Acquire) != ticket.task_id() {
-            assert!(Instant::now() < start_deadline, "script did not enter its active JS turn");
+            assert!(
+                Instant::now() < start_deadline,
+                "script did not enter its active JS turn"
+            );
             thread::yield_now();
         }
 
@@ -1672,7 +1919,9 @@ mod tests {
         ).unwrap().wait().unwrap();
 
         session.shutdown().unwrap();
-        let messages: Vec<_> = handle.take_diagnostics().into_iter()
+        let messages: Vec<_> = handle
+            .take_diagnostics()
+            .into_iter()
             .filter(|entry| entry.kind == DiagnosticKind::JavaScriptException)
             .map(|entry| entry.message)
             .collect();

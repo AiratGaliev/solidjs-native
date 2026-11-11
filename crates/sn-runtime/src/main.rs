@@ -24,7 +24,9 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 || initial.callback_count == 0
                 || initial.roots.is_empty()
             {
-                return Err(format!("Counter initial mount acceptance failed: {initial:?}"));
+                return Err(format!(
+                    "Counter initial mount acceptance failed: {initial:?}"
+                ));
             }
 
             println!(
@@ -54,7 +56,9 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 || updated.last_commit_operation_count != 1
                 || updated.last_commit_replace_text_count != 1
             {
-                return Err(format!("Counter signal update acceptance failed: {updated:?}"));
+                return Err(format!(
+                    "Counter signal update acceptance failed: {updated:?}"
+                ));
             }
             println!(
                 "Click callback updated Rust UiTree through one ReplaceText operation (revision={})",
@@ -81,7 +85,9 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 .wait()
                 .map_err(|error| error.to_string())?;
             if disposed.callback_count != 0 || disposed.node_count != 0 {
-                return Err(format!("Repeated mount/unmount leaked runtime roots: {disposed:?}"));
+                return Err(format!(
+                    "Repeated mount/unmount leaked runtime roots: {disposed:?}"
+                ));
             }
             println!(
                 "Eight mount/unmount cycles completed; callback roots={}, tree nodes={}",
@@ -105,7 +111,9 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
         eprintln!("runtime smoke failed: {error}");
     }
 
-    let shutdown = session.shutdown().map_err(|error| format!("EngineSession shutdown failed: {error}"));
+    let shutdown = session
+        .shutdown()
+        .map_err(|error| format!("EngineSession shutdown failed: {error}"));
     result?;
     shutdown
 }

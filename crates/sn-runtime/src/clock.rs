@@ -17,7 +17,9 @@ pub struct MonotonicClock {
 
 impl Default for MonotonicClock {
     fn default() -> Self {
-        Self { origin: Instant::now() }
+        Self {
+            origin: Instant::now(),
+        }
     }
 }
 
@@ -35,26 +37,28 @@ pub struct ManualClock {
 
 impl ManualClock {
     pub fn new(initial: Duration) -> Self {
-        Self { nanos: AtomicU64::new(duration_to_nanos(initial)) }
+        Self {
+            nanos: AtomicU64::new(duration_to_nanos(initial)),
+        }
     }
 
     /// Advances the clock to at least `value`; time never moves backwards.
     pub fn set(&self, value: Duration) {
         let target = duration_to_nanos(value);
-        let _ = self.nanos.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |current| Some(current.max(target)),
-        );
+        let _ = self
+            .nanos
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+                Some(current.max(target))
+            });
     }
 
     pub fn advance(&self, delta: Duration) {
         let increment = duration_to_nanos(delta);
-        let _ = self.nanos.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |current| Some(current.saturating_add(increment)),
-        );
+        let _ = self
+            .nanos
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+                Some(current.saturating_add(increment))
+            });
     }
 }
 

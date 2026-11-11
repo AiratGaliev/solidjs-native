@@ -4,8 +4,8 @@ use std::{
     collections::{BTreeMap, BinaryHeap, HashMap},
     rc::Rc,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
@@ -103,11 +103,7 @@ impl SchedulerState {
         self.timers.remove(&id).is_some()
     }
 
-    fn request_frame(
-        &mut self,
-        ctx: &Ctx<'_>,
-        callback: Function<'_>,
-    ) -> rquickjs::Result<u32> {
+    fn request_frame(&mut self, ctx: &Ctx<'_>, callback: Function<'_>) -> rquickjs::Result<u32> {
         if self.frame_callbacks.len() >= MAX_PENDING_FRAME_CALLBACKS {
             return Err(Exception::throw_range(
                 ctx,
@@ -145,7 +141,9 @@ impl SchedulerState {
         if id > cutoff {
             return None;
         }
-        self.frame_callbacks.remove(&id).map(|callback| (id, callback))
+        self.frame_callbacks
+            .remove(&id)
+            .map(|callback| (id, callback))
     }
 
     fn register_completion(
@@ -155,7 +153,10 @@ impl SchedulerState {
         callback: Function<'_>,
     ) -> rquickjs::Result<()> {
         if callback_id == 0 {
-            return Err(Exception::throw_range(ctx, "Completion callback id must be non-zero"));
+            return Err(Exception::throw_range(
+                ctx,
+                "Completion callback id must be non-zero",
+            ));
         }
         if self.completion_callbacks.contains_key(&callback_id) {
             return Err(Exception::throw_type(
@@ -164,7 +165,10 @@ impl SchedulerState {
             ));
         }
         if self.completion_callbacks.len() >= MAX_PENDING_COMPLETIONS {
-            return Err(Exception::throw_range(ctx, "Too many pending completion callbacks"));
+            return Err(Exception::throw_range(
+                ctx,
+                "Too many pending completion callbacks",
+            ));
         }
         self.completion_callbacks
             .insert(callback_id, Persistent::save(ctx, callback));
@@ -175,10 +179,7 @@ impl SchedulerState {
         self.completion_callbacks.remove(&callback_id)
     }
 
-    pub(crate) fn take_due_timer(
-        &mut self,
-        now: Duration,
-    ) -> Option<(u32, PersistentCallback)> {
+    pub(crate) fn take_due_timer(&mut self, now: Duration) -> Option<(u32, PersistentCallback)> {
         self.discard_stale_deadlines();
         let Reverse((deadline, id)) = *self.deadlines.peek()?;
         if deadline > now {
@@ -213,7 +214,8 @@ impl SchedulerState {
     }
 
     fn rebuild_deadlines(&mut self) {
-        self.deadlines = self.timers
+        self.deadlines = self
+            .timers
             .iter()
             .map(|(id, entry)| Reverse((entry.deadline, *id)))
             .collect();
@@ -280,9 +282,9 @@ pub(crate) fn install_bindings<'js>(
               delay_ms: f64,
               repeating: bool|
               -> rquickjs::Result<u32> {
-            let mut scheduler = state
-                .try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Scheduler state is already borrowed"))?;
+            let mut scheduler = state.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Scheduler state is already borrowed")
+            })?;
             scheduler.set_timer(&ctx, callback, delay_ms, repeating, clock.now())
         }
     })?;
@@ -291,9 +293,9 @@ pub(crate) fn install_bindings<'js>(
     let clear_timer = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, id: u32| -> rquickjs::Result<bool> {
-            let mut scheduler = state
-                .try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Scheduler state is already borrowed"))?;
+            let mut scheduler = state.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Scheduler state is already borrowed")
+            })?;
             Ok(scheduler.clear_timer(id))
         }
     })?;
@@ -302,9 +304,9 @@ pub(crate) fn install_bindings<'js>(
     let request_frame = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, callback: Function<'js>| -> rquickjs::Result<u32> {
-            let mut scheduler = state
-                .try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Scheduler state is already borrowed"))?;
+            let mut scheduler = state.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Scheduler state is already borrowed")
+            })?;
             scheduler.request_frame(&ctx, callback)
         }
     })?;
@@ -314,9 +316,9 @@ pub(crate) fn install_bindings<'js>(
     let cancel_frame = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, id: u32| -> rquickjs::Result<bool> {
-            let mut scheduler = state
-                .try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Scheduler state is already borrowed"))?;
+            let mut scheduler = state.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Scheduler state is already borrowed")
+            })?;
             Ok(scheduler.cancel_frame(id))
         }
     })?;
@@ -326,9 +328,9 @@ pub(crate) fn install_bindings<'js>(
     let register_completion = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, callback_id: u64, callback: Function<'js>| {
-            let mut scheduler = state
-                .try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Scheduler state is already borrowed"))?;
+            let mut scheduler = state.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Scheduler state is already borrowed")
+            })?;
             scheduler.register_completion(&ctx, callback_id, callback)
         }
     })?;
@@ -338,9 +340,9 @@ pub(crate) fn install_bindings<'js>(
     let unregister_completion = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, callback_id: u64| -> rquickjs::Result<bool> {
-            let mut scheduler = state
-                .try_borrow_mut()
-                .map_err(|_| Exception::throw_internal(&ctx, "Scheduler state is already borrowed"))?;
+            let mut scheduler = state.try_borrow_mut().map_err(|_| {
+                Exception::throw_internal(&ctx, "Scheduler state is already borrowed")
+            })?;
             Ok(scheduler.take_completion(callback_id).is_some())
         }
     })?;
@@ -559,10 +561,8 @@ mod tests {
 
         context.with(|ctx| {
             install_bindings(ctx.clone(), state.clone(), clock).unwrap();
-            ctx.eval::<(), _>(
-                "globalThis.intervals = 0; setInterval(() => intervals++, 2);",
-            )
-            .unwrap();
+            ctx.eval::<(), _>("globalThis.intervals = 0; setInterval(() => intervals++, 2);")
+                .unwrap();
 
             manual.advance(Duration::from_millis(20));
             let (_, callback) = state.borrow_mut().take_due_timer(manual.now()).unwrap();
