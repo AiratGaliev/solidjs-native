@@ -442,6 +442,10 @@ mod tests {
                 let hits: u32 = ctx.globals().get("__event_hits")?;
                 assert_eq!(hits, 1);
                 assert_eq!(state.borrow().sink().commits().len(), 1);
+
+                state.borrow_mut().dispose();
+                assert_eq!(state.borrow().callback_count(), 0);
+                assert_eq!(state.borrow().tree.node_count(), 0);
                 Ok(())
             })
             .unwrap();
