@@ -572,7 +572,7 @@ mod tests {
 
             manual.advance(Duration::from_millis(2));
             let (_, callback) = state.borrow_mut().take_due_timer(manual.now()).unwrap();
-            callback.restore(ctx).unwrap().call::<_, ()>(()).unwrap();
+            callback.restore(&ctx).unwrap().call::<_, ()>(()).unwrap();
             let intervals: u32 = ctx.eval("intervals").unwrap();
             assert_eq!(intervals, 2);
         });

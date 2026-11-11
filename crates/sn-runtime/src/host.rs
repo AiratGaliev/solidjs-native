@@ -4,7 +4,10 @@ use std::{
     rc::Rc,
 };
 
-use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray, Value};
+use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray};
+
+#[cfg(test)]
+use rquickjs::Value;
 
 use sn_core::{
     CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId, ProtocolError,
@@ -327,7 +330,22 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
     Ok(())
 }
 
-pub fn dispatch_event<'js>(
+pub #[cfg(test)]
+pub fn dispatch_event_and_flush<'js>(
+    ctx: &Ctx<'js>,
+    state: &SharedHostState,
+    node_id: NodeId,
+    event_name: &str,
+) -> rquickjs::Result<bool> {
+    let dispatched = dispatch_event(ctx, state, node_id, event_name)?;
+    if dispatched {
+        let flush: Function = ctx.globals().get("__sn_flush_host_batch")?;
+        let _: Value<'js> = flush.call(())?;
+    }
+    Ok(dispatched)
+}
+
+fn dispatch_event<'js>(
     ctx: &Ctx<'js>,
     state: &SharedHostState,
     node_id: NodeId,
