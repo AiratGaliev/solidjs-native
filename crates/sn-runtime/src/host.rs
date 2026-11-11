@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray};
 
 use sn_core::{
-    CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId, ProtocolError,
-    SessionGeneration, SurfaceId, TreeError, UiTree, decode_batch,
+    BatchHeader, CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId,
+    ProtocolError, SessionGeneration, SurfaceId, TreeError, UiTree, decode_batch,
 };
 
 pub type SharedHostState = Rc<RefCell<HostState>>;
@@ -86,7 +86,7 @@ impl HostState {
         self.commit_batch(&batch)
     }
 
-    pub fn commit_batch(&mut self, batch: &HostBatch) -> Result<CommitAck, HostApplyError> {
+    fn commit_batch(&mut self, batch: &HostBatch) -> Result<CommitAck, HostApplyError> {
         if self.disposed {
             return Err(HostApplyError::Disposed);
         }
@@ -306,7 +306,6 @@ fn event_batch(tree: &UiTree, transaction_id: u64, operations: Vec<HostOperation
 mod tests {
     use super::*;
     use rquickjs::{Context, Runtime};
-    use sn_core::BatchHeader;
 
     #[test]
     fn callback_registry_dispatches_and_returns_to_baseline_after_remove() {
