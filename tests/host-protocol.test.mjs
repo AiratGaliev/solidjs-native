@@ -63,7 +63,7 @@ test("rejects unsupported non-finite property values before transport", () => {
 
 test("rejects unpaired UTF-16 surrogate input", () => {
   const encoder = new HostBatchEncoder();
-  encoder.createText("\ud800");
+  encoder.createText(String.fromCharCode(0xd800));
   assert.throws(() => encoder.encode(), /unpaired high surrogate/);
 });
 
@@ -75,6 +75,6 @@ test("rejects NUL in protocol strings before crossing the host boundary", () => 
 
 test("rejects unpaired low UTF-16 surrogate input", () => {
   const encoder = new HostBatchEncoder();
-  encoder.createText("\\udc00");
+  encoder.createText(String.fromCharCode(0xdc00));
   assert.throws(() => encoder.encode(), /unpaired low surrogate/);
 });
