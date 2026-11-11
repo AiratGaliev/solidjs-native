@@ -69,6 +69,8 @@ Exit criteria: complete.
 
 ## 4. M1 — Rust-owned host tree and typed protocol
 
+Status: implementation on the SOL-6 topic branch; Fast CI and final review pending.
+
 ### Goal
 
 Remove the duplicated authoritative tree. SolidJS renderer drives the Rust UiTree through a typed batch protocol.
@@ -88,7 +90,7 @@ Remove the duplicated authoritative tree. SolidJS renderer drives the Rust UiTre
 11. Add input-event dispatch from engine into JS handler registry.
 12. Add cleanup on node removal and renderer dispose.
 13. Replace current synchronous counter inspection with Rust tree assertions.
-14. Preserve a test-only diagnostic JSON representation if it simplifies debugging; it must not be used as production transport.
+14. Keep JSON outside the production host mutation transport; the implementation uses no JSON encoding or parsing on the operation path.
 
 ### Required operation set
 

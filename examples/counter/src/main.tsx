@@ -12,13 +12,27 @@ function App() {
   );
 }
 
-const root: NativeNode = {
-  kind: "element",
-  tag: "root",
-  parent: null,
-  children: [],
-  properties: {},
-};
+function createRoot(): NativeNode {
+  return {
+    surfaceId: 0,
+    sessionGeneration: 0,
+    nodeId: 0,
+    kind: "element",
+    tag: "root",
+    parent: null,
+    children: [],
+    properties: {},
+    eventHandlerIds: new Map(),
+  };
+}
 
-render(() => <App />, root);
-(globalThis as typeof globalThis & { __sn_demo_root?: NativeNode }).__sn_demo_root = root;
+(globalThis as typeof globalThis & {
+  __sn_demo_dispose?: () => void;
+  __sn_mount_counter?: () => () => void;
+}).__sn_mount_counter = () => render(() => <App />, createRoot());
+
+(globalThis as typeof globalThis & {
+  __sn_demo_dispose?: () => void;
+}).__sn_demo_dispose = (globalThis as typeof globalThis & {
+  __sn_mount_counter: () => () => void;
+}).__sn_mount_counter();

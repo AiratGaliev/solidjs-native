@@ -26,6 +26,8 @@ At the same time, arbitrary JS objects and closures must not become Rust core va
 
 CreateElement, CreateText, ReplaceText, SetProperty, RemoveProperty, InsertNode, RemoveNode, BindEvent, UnbindEvent, AttachResource and DetachResource.
 
+The exact v1.0 byte layout, operation sizes, value tags, arenas, limits and acknowledgement semantics are specified in [Host Protocol v1](../architecture/host-protocol-v1.md). V1 uses a 64-byte header, little-endian fixed-width records and a bounded UTF-8 string arena; property values are inline tagged values. The decoder accepts only major version 1/minor 0 in this implementation. Any incompatible layout change requires a new major version; backward-compatible additions require a minor-version policy and matching compatibility tests.
+
 ## Consequences
 
 - The protocol needs golden fixtures and strict compatibility tests.

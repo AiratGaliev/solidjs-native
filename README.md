@@ -50,10 +50,10 @@ Key documents:
 
 ## Current workspace
 
-- crates/sn-core — minimal platform-independent retained UI tree and invariants.
-- crates/sn-runtime — current QuickJS-NG runner/smoke host; it will be refactored into a reusable runtime library.
-- packages/solid-native — Solid Universal renderer adapter and initial host primitives.
-- examples/counter — TSX runtime smoke test.
+- crates/sn-core — platform-independent authoritative retained UI tree, typed properties, revisioned transactions and strict Host Protocol v1 decoder.
+- crates/sn-runtime — QuickJS-NG runner and M1 native bindings for owned batch submission, event dispatch and callback-root cleanup; the reusable runtime library is a later M2 deliverable.
+- packages/solid-native — Solid Universal renderer adapter, per-session node handles and Host Protocol v1 binary encoder.
+- examples/counter — TSX integration smoke test for Rust tree mount, click dispatch, signal update and repeated renderer cleanup.
 - docs — target architecture, runtime contracts, platform design, roadmap and ADRs.
 
 The future crate graph is specified in the architecture documents. It should be extracted incrementally when interfaces and ownership boundaries become real, not created as a set of empty packages.
@@ -75,7 +75,11 @@ Type-check and build:
     pnpm typecheck
     pnpm build
 
-Run the current QuickJS smoke test:
+Run the Host Protocol v1 encoder contract tests:
+
+    pnpm test:host-protocol
+
+Run the QuickJS/Rust tree integration smoke test:
 
     pnpm smoke
 
@@ -100,7 +104,7 @@ Development follows the route `feat/* | feature/* | fix/* | refactor/* | test/* 
 
 See [Engineering Workflow](docs/engineering-workflow.md) for Linear issue lifecycle and Definition of Done; [Development Workflow and GitHub CI Policy](docs/development-workflow.md) for branches, PR routes and CI; [the PR template](.github/pull_request_template.md); and [GitHub Actions workflows](.github/workflows/).
 
-`pnpm check` is the fast gate (typecheck, build, Rust formatting, Clippy and workspace tests). `pnpm smoke` is the current embedded-runtime integration acceptance and runs in the promotion workflow.
+`pnpm check` is the fast gate (typecheck, Vite build, Host Protocol v1 encoder tests, Rust formatting, Clippy and workspace tests). `pnpm smoke` validates the synchronous SolidJS/QuickJS/Rust UiTree path, including click, signal update and callback cleanup; the promotion workflow runs it on `dev → test`.
 
 ## Project tasks and Linear
 
@@ -127,9 +131,7 @@ Project license and third-party dependency notices must be finalized before dist
 
 ## TODO
 
-- [ ] Implement the typed, versioned JavaScript-to-Rust host protocol and stable node handles.
-- [ ] Make Rust `UiTree` authoritative by applying renderer batches atomically.
-- [ ] Add integration coverage for renderer mount, signal-driven updates, node moves/removal and event dispatch.
+- [ ] Complete M1 acceptance: Fast CI and the updated QuickJS/Rust Counter smoke must pass on the final SOL-6 candidate.
 - [ ] Implement deterministic QuickJS job scheduling, Promise jobs, timers and runtime cleanup.
 - [ ] Add Taffy-backed layout, native CSS/Tailwind compilation and a deterministic headless style/mount pipeline.
 

@@ -9,10 +9,11 @@ SolidJS Native is a standalone, cross-platform application framework and SDK pow
 3. [Architecture reuse and dependency adoption map](architecture/dependency-adoption.md) — reference roles, selected components, prototype candidates and reuse boundaries.
 4. [Styling, CSS and Tailwind CSS](architecture/styling-and-css.md) — shared styling model, native CSS compatibility profile, Tailwind build integration and Stylo adapter.
 5. [SolidJS runtime and host protocol](architecture/solidjs-runtime-and-host-protocol.md) — Universal renderer, QuickJS integration, typed batched UI bridge, scheduler and callback lifecycle.
-6. [Platform backends](architecture/platform-backends.md) — Windows/macOS/Linux/iOS/Android/Web, native rendering, application host, embedding and platform acceptance.
-7. [GPUI Kit comparison](architecture/gpui-kit-comparison.md) — adjacent desktop framework, GPUI Shell runtime and reuse decisions.
-8. [NSH implementation reference map](architecture/nsh-feature-parity.md) — concrete upstream native implementations, architectural differences and reuse rules.
-9. [Implementation roadmap](roadmap.md) — milestones M0–M16, work packages and acceptance criteria.
+6. [Host Protocol v1](architecture/host-protocol-v1.md) — exact binary header, operation records, value tags, bounds and transaction semantics.
+7. [Platform backends](architecture/platform-backends.md) — Windows/macOS/Linux/iOS/Android/Web, native rendering, application host, embedding and platform acceptance.
+8. [GPUI Kit comparison](architecture/gpui-kit-comparison.md) — adjacent desktop framework, GPUI Shell runtime and reuse decisions.
+9. [NSH implementation reference map](architecture/nsh-feature-parity.md) — concrete upstream native implementations, architectural differences and reuse rules.
+10. [Implementation roadmap](roadmap.md) — milestones M0–M16, work packages and acceptance criteria.
 
 ## Mandatory engineering policy
 
