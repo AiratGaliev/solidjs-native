@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HostBatchEncoder } from "../packages/solid-native/src/protocol.ts";
-import { createElement, setProp } from "../packages/solid-native/src/host.ts";
+import { assertHostValue, HostBatchEncoder } from "../packages/solid-native/src/protocol.ts";
 
 function viewOf(bytes) {
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -109,8 +108,12 @@ test("discards uncommitted callback roots and poisons the adapter after encode f
 });
 
 
-test("rejects unsupported symbol and bigint host properties", () => {
-  const element = createElement("view");
-  assert.throws(() => setProp(element, "data", Symbol("unsupported")), /supported primitive value/);
-  assert.throws(() => setProp(element, "data", 1n), /supported primitive value/);
+test("accepts supported primitive host values and rejects symbols, bigints and objects", () => {
+  for (const value of ["text", 42, true, false, null]) {
+    assert.doesNotThrow(() => assertHostValue(value, "data"));
+  }
+  assert.throws(() => assertHostValue(Symbol("unsupported"), "data"), /supported primitive value/);
+  assert.throws(() => assertHostValue(1n, "data"), /supported primitive value/);
+  assert.throws(() => assertHostValue({ nested: true }, "data"), /supported primitive value/);
+  assert.throws(() => assertHostValue(() => undefined, "data"), /supported primitive value/);
 });

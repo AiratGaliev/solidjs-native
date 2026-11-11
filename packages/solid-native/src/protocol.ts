@@ -1,5 +1,16 @@
 export type HostValue = string | number | boolean | null;
 
+export function assertHostValue(value: unknown, propertyName: string): asserts value is HostValue {
+  if (
+    value !== null &&
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  ) {
+    throw new TypeError(`Property ${propertyName} must use a supported primitive value`);
+  }
+}
+
 export type HostOperation =
   | { kind: "create-element"; id: number; tag: string }
   | { kind: "create-text"; id: number; text: string }

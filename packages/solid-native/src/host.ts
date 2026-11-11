@@ -1,5 +1,5 @@
 import { createRenderer } from "solid-js/universal";
-import { HostBatchEncoder, type HostBatchAck, type HostValue } from "./protocol";
+import { assertHostValue, HostBatchEncoder, type HostBatchAck } from "./protocol";
 
 declare global {
   var __sn_flush_host_batch: (() => HostBatchAck | undefined) | undefined;
@@ -91,15 +91,8 @@ const renderer = createRenderer<NativeNode>({
       encoder.removeProperty(node.nodeId, name);
       return;
     }
-    if (
-      value !== null &&
-      typeof value !== "string" &&
-      typeof value !== "number" &&
-      typeof value !== "boolean"
-    ) {
-      throw new TypeError(`Property ${name} must use a supported primitive value`);
-    }
-    const hostValue = value as HostValue;
+    assertHostValue(value, name);
+    const hostValue = value;
     encoder.setProperty(node.nodeId, name, hostValue);
   },
   insertNode(parent, node, anchor) {
