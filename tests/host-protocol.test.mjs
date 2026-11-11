@@ -96,10 +96,13 @@ test("rejects a string above the 1 MiB UTF-8 limit during encoding", () => {
 test("discards uncommitted callback roots and poisons the adapter after encode failure", () => {
   const previousRegister = globalThis.__sn_register_callback;
   const previousDiscard = globalThis.__sn_discard_pending_callbacks;
+  const previousDispose = globalThis.__sn_dispose;
   const previousApply = globalThis.__sn_apply_batch;
   let discarded = 0;
+  let disposed = 0;
   globalThis.__sn_register_callback = () => 7;
   globalThis.__sn_discard_pending_callbacks = () => { discarded += 1; };
+  globalThis.__sn_dispose = () => { disposed += 1; };
   globalThis.__sn_apply_batch = () => { throw new Error("Native batch binding must not run after encode failure"); };
 
   try {
@@ -109,17 +112,47 @@ test("discards uncommitted callback roots and poisons the adapter after encode f
 
     assert.throws(() => encoder.flush(), /unpaired high surrogate/);
     assert.equal(discarded, 1);
-    assert.throws(() => encoder.createElement("root"), /poisoned/);
+    assert.equal(disposed, 1);
+    assert.throws(() => encoder.createElement("root"), /disposed/);
   } finally {
     if (previousRegister === undefined) delete globalThis.__sn_register_callback;
     else globalThis.__sn_register_callback = previousRegister;
     if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
     else globalThis.__sn_discard_pending_callbacks = previousDiscard;
+    if (previousDispose === undefined) delete globalThis.__sn_dispose;
+    else globalThis.__sn_dispose = previousDispose;
     if (previousApply === undefined) delete globalThis.__sn_apply_batch;
     else globalThis.__sn_apply_batch = previousApply;
   }
 });
 
+
+test("aborts the session when the native batch binding rejects a transaction", () => {
+  const previousDiscard = globalThis.__sn_discard_pending_callbacks;
+  const previousDispose = globalThis.__sn_dispose;
+  const previousApply = globalThis.__sn_apply_batch;
+  let discarded = 0;
+  let disposed = 0;
+  globalThis.__sn_discard_pending_callbacks = () => { discarded += 1; };
+  globalThis.__sn_dispose = () => { disposed += 1; };
+  globalThis.__sn_apply_batch = () => { throw new Error("native rejection"); };
+
+  try {
+    const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
+    encoder.createElement("root");
+    assert.throws(() => encoder.flush(), /native rejection/);
+    assert.equal(discarded, 1);
+    assert.equal(disposed, 1);
+    assert.throws(() => encoder.createElement("after-failure"), /disposed/);
+  } finally {
+    if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
+    else globalThis.__sn_discard_pending_callbacks = previousDiscard;
+    if (previousDispose === undefined) delete globalThis.__sn_dispose;
+    else globalThis.__sn_dispose = previousDispose;
+    if (previousApply === undefined) delete globalThis.__sn_apply_batch;
+    else globalThis.__sn_apply_batch = previousApply;
+  }
+});
 
 test("aborts a failed mount session and releases pending callbacks without applying a batch", () => {
   const previousRegister = globalThis.__sn_register_callback;
