@@ -16,6 +16,7 @@
 
 ## Engineering policy
 
+- [Development workflow and GitHub CI policy](development-workflow.md)
 - [Dependency policy and current stable version baseline](dependency-policy.md)
 
 ## Architecture decisions

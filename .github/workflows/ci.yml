@@ -1,0 +1,100 @@
+name: CI Fast
+
+on:
+  pull_request:
+    branches: [dev, test, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-routing:
+    name: validate-branch-routing
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate pull request routing
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "Branch routing validation is only applicable to pull requests."
+            exit 0
+          fi
+
+          case "$BASE_BRANCH" in
+            dev)
+              case "$HEAD_BRANCH" in
+                feat/*|feature/*|fix/*|refactor/*|test/*|docs/*|chore/*|dependabot/*)
+                  echo "Allowed route: $HEAD_BRANCH -> dev"
+                  ;;
+                *)
+                  echo "::error::Topic branches (feat/*, feature/*, fix/*, refactor/*, test/*, docs/*, chore/*, dependabot/*) must target dev."
+                  exit 1
+                  ;;
+              esac
+              ;;
+            test)
+              if [[ "$HEAD_BRANCH" != "dev" ]]; then
+                echo "::error::Only dev -> test promotion pull requests are allowed."
+                exit 1
+              fi
+              echo "Allowed route: dev -> test"
+              ;;
+            main)
+              case "$HEAD_BRANCH" in
+                test|hotfix/*)
+                  echo "Allowed route: $HEAD_BRANCH -> main"
+                  ;;
+                *)
+                  echo "::error::Only test -> main or hotfix/* -> main pull requests are allowed."
+                  exit 1
+                  ;;
+              esac
+              ;;
+            *)
+              echo "::error::Unknown target branch: $BASE_BRANCH"
+              exit 1
+              ;;
+          esac
+
+  checks:
+    name: fast-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up pinned Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+
+      - name: Install locked JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run project checks
+        run: pnpm check

@@ -81,6 +81,19 @@ Combined project check:
 
     pnpm check
 
+## Development workflow
+
+Development follows the route `feat/* | feature/* | fix/* | refactor/* | test/* | docs/* | chore/* → dev → test → main`:
+
+- topic branches target `dev`;
+- `dev` → `test` is a dedicated promotion PR for integrated acceptance;
+- `test` → `main` is the release route; urgent fixes use `hotfix/*` → `main`;
+- fast CI runs on every PR; promotion acceptance/E2E is isolated to `dev` → `test`.
+
+See [Development Workflow and GitHub CI Policy](docs/development-workflow.md), [the PR template](.github/pull_request_template.md) and [GitHub Actions workflows](.github/workflows/).
+
+`pnpm check` is the fast gate (typecheck, build, Rust formatting, Clippy and workspace tests). `pnpm smoke` is the current embedded-runtime integration acceptance and runs in the promotion workflow.
+
 ## Architectural invariants
 
 1. Do not introduce a second reactive graph in Rust.
