@@ -4,6 +4,25 @@ use host::{HostState, SharedHostState, dispatch_event_and_flush, install_host_bi
 use rquickjs::{Context, Exception, Runtime};
 use std::{cell::RefCell, env, fs, process::ExitCode, rc::Rc};
 
+fn report_quickjs_exception(ctx: &rquickjs::Ctx<'_>, error: &rquickjs::Error) {
+    if !error.is_exception() || !ctx.has_exception() {
+        return;
+    }
+
+    match Exception::from_value(ctx.catch()) {
+        Ok(exception) => {
+            let message = exception
+                .message()
+                .unwrap_or_else(|| "JavaScript Error without a message".to_owned());
+            eprintln!("QuickJS exception: {message}");
+            if let Some(stack) = exception.stack() {
+                eprintln!("QuickJS stack:\\n{stack}");
+            }
+        }
+        Err(_) => eprintln!("QuickJS raised a non-Error JavaScript value"),
+    }
+}
+
 fn main() -> ExitCode {
     let source_path = env::args().nth(1);
     let source = match source_path.as_deref() {
@@ -40,6 +59,7 @@ fn main() -> ExitCode {
         ctx.globals().set("__solid_native_runtime__", "QuickJS-NG")?;
         install_host_bindings(ctx.clone(), state.clone())?;
 
+        let execution = (|| -> rquickjs::Result<()> {
         if let Some(code) = source.as_deref() {
             ctx.eval::<(), _>(code)?;
             println!("JavaScript bundle executed successfully");
@@ -156,6 +176,12 @@ fn main() -> ExitCode {
             println!("SolidJS Native runtime ready ({name})");
         }
         Ok(())
+        })();
+
+        if let Err(error) = &execution {
+            report_quickjs_exception(&ctx, error);
+        }
+        execution
     });
 
     match result {
