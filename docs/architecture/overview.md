@@ -1,10 +1,10 @@
 # Architecture overview
 
-This file is a short entry point. SolidJS Native is a standalone Tauri-class application framework whose first demanding consumer is Codogma Engine. Tauri 2 is the product-level reference; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop and QuickJS-host reference; Servo Stylo is a CSS implementation reference.
+This file is a short entry point. SolidJS Native is a standalone cross-platform application framework and SDK for upstream SolidJS. Tauri 2 is only an external reference for studying application-framework architecture and developer workflows; it does not define the product goal or required feature set. NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop and QuickJS-host reference; Servo Stylo is a CSS implementation reference.
 
 The complete specification is in:
 
-- [Tauri replacement scope](tauri-replacement-scope.md)
+- [Application framework scope](application-framework.md)
 - [Target architecture](target-architecture.md)
 - [Architecture reuse and dependency adoption map](dependency-adoption.md)
 - [Styling, CSS and Tailwind CSS](styling-and-css.md)
@@ -12,7 +12,7 @@ The complete specification is in:
 - [Platform backends](platform-backends.md)
 - [GPUI Kit comparison and reuse map](gpui-kit-comparison.md)
 - [NSH implementation reference map](nsh-feature-parity.md)
-- [ADR-0008](../decisions/0008-tauri-class-application-framework.md)
+- [ADR-0008](../decisions/0008-standalone-application-framework.md)
 - [ADR-0009: CSS and Tailwind CSS](../decisions/0009-css-and-tailwind-native-styling.md)
 - [Upstream references](../reference/upstream-references.md)
 
@@ -40,7 +40,7 @@ SolidJS application API
 
 The Application Bridge is not the renderer-to-Rust UI Host Protocol. The former invokes native application services and delivers events; the latter commits renderer mutations into the authoritative retained UI tree.
 
-The web target has a separate browser renderer and uses the browser's JS engine and DOM. Browser-only functionality, including Phaser preview, runs through this web target in a normal browser session; it is not embedded into the native UI runtime.
+The web target has a separate browser renderer and uses the browser's JS engine and DOM. Browser-only functionality runs through this web target in a normal browser session; it is not embedded into the native UI runtime.
 
 ## Ownership rules
 

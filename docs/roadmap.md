@@ -9,7 +9,7 @@
 
 Dependency selection is governed by [Dependency Policy and Version Baseline](dependency-policy.md). Do not copy version constraints from NSH. At each milestone, verify the latest stable compatible release using the official registry/release source, update manifests and lockfiles, and run the corresponding compatibility suite. The dependency policy is authoritative if a version mentioned in this roadmap becomes stale.
 
-Цель roadmap — самостоятельный Tauri-class application framework для SolidJS/TSX. SolidJS Native должен стать функциональной заменой Tauri 2 в выбранных сценариях Codogma Engine и пригодным внешним SDK для других приложений. Tauri 2 — продуктовый референс полноты framework; NSH — технический референс native UI subsystems, а не целевой продукт или обязательная dependency. Полный scope и migration gate описаны в [Tauri replacement scope](architecture/tauri-replacement-scope.md), решение закреплено в [ADR-0008](decisions/0008-tauri-class-application-framework.md).
+Цель roadmap — развитие самостоятельного cross-platform application framework и SDK для SolidJS/TSX. Tauri 2 используется только как внешний референс для изучения архитектуры подобных framework и developer workflow; продуктовые цели и feature scope SolidJS Native определяются независимо. NSH — технический референс native UI subsystems, а не целевой продукт или обязательная dependency. Собственный scope framework описан в [Application Framework Scope](architecture/application-framework.md), архитектурное решение — в [ADR-0008](decisions/0008-standalone-application-framework.md).
 
 Это большой runtime/framework проект. Milestone означает проверенный набор возможностей, а не просто добавление файлов или crate. Каждый milestone должен:
 - иметь явный scope;
@@ -40,11 +40,11 @@ Dependency selection is governed by [Dependency Policy and Version Baseline](dep
 | M13 | Application Bridge and native services | Typed commands/events and permission-checked OS services | M12 |
 | M14 | Native plugin system | Versioned Rust/TypeScript plugin contracts and platform adapters | M13, M10 |
 | M15 | Packaging and distribution | Installers, signing, update channels and recovery | M9, M12-M14 |
-| M16 | Codogma Tauri replacement | Public SDK integration and verified editor migration gate | M11-M15 |
+| M16 | Public SDK and independent consumer validation | Public SDK integration in representative sample applications | M11-M15 |
 
 Milestones may overlap only where they do not violate dependencies. For example, web API design can be researched while Windows backend is implemented, but it must not force changes to core before contracts are tested.
 
-M0-M11 establish and harden the cross-platform UI/runtime foundation. They do **not** by themselves establish a complete Tauri 2 replacement: application shell, native service bridge, plugin integration, distribution/update workflow and real Codogma migration are covered by M12-M16.
+M0-M11 establish and harden the cross-platform UI/runtime foundation. M12-M15 add the application shell, native service bridge, plugin integration and distribution/update workflow. M16 validates the public SDK in a representative external consumer; it is not a migration away from another application host.
 
 ## 3. M0 — Runtime proof
 
@@ -504,7 +504,7 @@ Provide the process-level application host and top-level native window lifecycle
 2. Implement application startup, activation, single-instance handoff, quit/restart and shutdown ordering on Windows first.
 3. Implement top-level window creation, close requests, activation/focus, resize, minimize/maximize/fullscreen, title, icon and decorations.
 4. Add application/window menus, context menus and keyboard shortcut routing required by the first consumer.
-5. Add tray/status item, notifications and URL/file activation only where the target OS supports them and Codogma requires them.
+5. Add tray/status item, notifications and URL/file activation only where the target OS and documented framework use cases justify them.
 6. Keep Surface attach/detach and MountBatch application in the existing per-Surface contracts.
 7. Add lifecycle and multi-window integration tests, including failure and disposal cases.
 
@@ -587,30 +587,30 @@ Build and distribute standalone applications through a reproducible platform-awa
 - Interrupted or invalid updates do not leave the application unlaunchable or silently corrupt user data.
 - Unsupported packaging/update capabilities are not advertised as available.
 
-## 19. M16 — Codogma Tauri replacement and migration gate
+## 19. M16 — Public SDK and independent consumer validation
 
 ### Goal
 
-Prove SolidJS Native as an external SDK by running a real Codogma Editor application without Tauri as its native application host.
+Validate SolidJS Native as a reusable, versioned SDK through independent sample consumer applications. M16 proves that consumers can install and use the public framework contracts from a clean checkout; it is not tied to a specific engine, editor, company or application host.
 
 ### Work packages
 
-1. Publish/use the public Rust crates, NPM packages and CLI from a separate Codogma consumer project; no source vendoring or private-module imports.
-2. Preserve editor domain models, commands, project state and validated workflows independently of Web or Native host rendering.
-3. Port a representative editor vertical slice first: application shell, workbench/window lifecycle, hierarchy/inspector interaction, keyboard shortcuts and project file dialogs.
-4. Replace remaining DOM-dependent editor controls with supported cross-platform primitives or explicitly native implementations; do not assume existing DOM components or Tailwind CSS are automatically portable.
-5. Keep Phaser game preview as a separate Web-target workload served to and executed by a normal browser; do not embed a browser engine into the native editor runtime for preview.
-6. Run real editor workflows, platform UI tests, security checks, packaging/install/update checks and performance comparisons against the existing Tauri build.
-7. Document migration, rollback and remaining differences before removing the Tauri dependency.
+1. Publish or consume the public Rust crates, NPM packages and CLI from a separate sample consumer project; no source vendoring or private-module imports.
+2. Implement a representative standalone application that exercises application/window lifecycle, navigation, native controls, keyboard/input, dialogs and supported native services.
+3. Provide a separate Web-target sample using browser-native DOM/runtime contracts.
+4. Validate SDK installation, build, run, diagnostics and packaging from a clean checkout on the platforms claimed by the samples.
+5. Run native lifecycle, text/input/IME, accessibility, permissions, security, packaging and recovery tests; record platform-specific differences.
+6. Measure startup, memory, idle CPU, input latency, first-frame time and package size against explicit framework budgets.
+7. Document public API usage, integration guidance, examples, compatibility/support matrix and known limitations.
 
 ### Acceptance
 
-- Codogma Editor builds from a clean checkout using SolidJS Native as an external, versioned dependency.
-- The selected product-critical editor workflows pass on the target platform without Tauri hosting the application.
-- Keyboard, text input/IME, accessibility, windowing, file access, clipboard, menus and lifecycle meet the agreed Codogma requirements.
-- Phaser preview remains functional in a normal browser session independently of the native editor UI and runtime.
-- Startup, memory, idle CPU, input latency, first-frame time and package size meet explicit budgets.
-- Tauri is removed only after this gate passes; a prototype or single-window screenshot is insufficient.
+- Independent sample consumers build from a clean checkout using only public, versioned SDK packages and documented APIs.
+- Sample workflows pass on every platform claimed by the sample; unsupported capabilities are explicit.
+- Native and Web target contracts, platform-specific behavior, permissions and lifecycle are covered by repeatable evidence.
+- Security, accessibility, packaging and performance results meet the declared framework maturity and budgets.
+- SDK documentation, samples, compatibility/support matrix and limitations are published and consistent.
+- The result is based on reproducible application workflows and platform checks, not a prototype-only screenshot. No particular product integration, host replacement or migration is implied.
 
 ## 20. Cross-cutting engineering rules
 

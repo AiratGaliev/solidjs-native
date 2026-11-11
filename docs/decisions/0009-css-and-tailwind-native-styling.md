@@ -7,7 +7,7 @@
 
 ## Context
 
-SolidJS Native targets real upstream SolidJS and TypeScript/TSX. Developers need a familiar styling workflow and the ability to use existing CSS knowledge, design tokens and Tailwind CSS utilities. Styling is a product requirement for the SDK and for Codogma Engine's editor UI.
+SolidJS Native targets real upstream SolidJS and TypeScript/TSX. Developers need a familiar styling workflow and the ability to use existing CSS knowledge, design tokens and Tailwind CSS utilities. Styling is a first-class authoring requirement for applications built with the SDK, including complex native desktop and browser-based interfaces.
 
 The architecture deliberately avoids a browser/WebView as the primary native renderer. Consequently, native targets cannot delegate style computation to a browser CSS engine. Taffy supplies layout algorithms, but it is not a CSS parser, cascade engine, theme resolver or paint system.
 

@@ -2,11 +2,11 @@
 
 **TSX-first cross-platform application framework with a native UI runtime powered by upstream SolidJS.**
 
-SolidJS Native is an experimental, standalone cross-platform application framework and native UI runtime. Its product goal is to become a functional Tauri 2 alternative for Codogma Engine and other SolidJS/TypeScript applications. The application API is based on upstream SolidJS and TypeScript/TSX; the native runtime, retained UI tree, application host and platform integration are implemented in Rust.
+SolidJS Native is an experimental, standalone cross-platform application framework and native UI runtime. Its goal is to provide a reusable SDK for SolidJS/TypeScript applications. The application API is based on upstream SolidJS and TypeScript/TSX; the native runtime, retained UI tree, application host and platform integration are implemented in Rust.
 
-Native application UI uses NSH-inspired platform renderers and native text, input and accessibility services. The Web target is a separate browser deployment using the browser's JavaScript engine and DOM. Browser-only workflows, including Phaser preview, run in a normal browser and do not add a browser engine to the native runtime.
+Native application UI uses NSH-inspired platform renderers and native text, input and accessibility services. The Web target is a separate browser deployment using the browser's JavaScript engine and DOM. Browser-only workloads run in a normal browser and do not add a browser engine to the native runtime.
 
-Tauri 2 is the product-level reference for application-framework completeness; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop UI and QuickJS host reference; Servo Stylo is a CSS implementation reference.
+Tauri 2 is an external reference for studying application-framework architecture and developer workflows; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop UI and QuickJS host reference; Servo Stylo is a CSS implementation reference.
 
 ## Product direction
 
@@ -29,7 +29,7 @@ Dependency versions follow the [latest-stable dependency policy](docs/dependency
 
 Key documents:
 
-- [Tauri replacement scope](docs/architecture/tauri-replacement-scope.md)
+- [Application framework scope](docs/architecture/application-framework.md)
 - [Target architecture](docs/architecture/target-architecture.md)
 - [Architecture reuse and dependency adoption map](docs/architecture/dependency-adoption.md)
 - [Styling, CSS and Tailwind CSS](docs/architecture/styling-and-css.md)
@@ -80,6 +80,19 @@ Run Rust tests and lint:
 Combined project check:
 
     pnpm check
+
+## Development workflow
+
+Development follows the route `feat/* | feature/* | fix/* | refactor/* | test/* | docs/* | chore/* → dev → test → main`:
+
+- topic branches target `dev`;
+- `dev` → `test` is a dedicated promotion PR for integrated acceptance;
+- `test` → `main` is the release route; urgent fixes use `hotfix/*` → `main`;
+- fast CI runs on every PR; promotion acceptance/E2E is isolated to `dev` → `test`.
+
+See [Development Workflow and GitHub CI Policy](docs/development-workflow.md), [the PR template](.github/pull_request_template.md) and [GitHub Actions workflows](.github/workflows/).
+
+`pnpm check` is the fast gate (typecheck, build, Rust formatting, Clippy and workspace tests). `pnpm smoke` is the current embedded-runtime integration acceptance and runs in the promotion workflow.
 
 ## Architectural invariants
 

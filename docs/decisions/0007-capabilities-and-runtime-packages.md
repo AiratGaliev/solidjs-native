@@ -5,7 +5,7 @@
 
 ## Context
 
-A Tauri-class application framework for SolidJS Native should eventually load UI modules at runtime, including team-authored or generated screens. Dynamic code runs inside a native host process and may otherwise inherit dangerous privileges. NSH is an implementation reference for runtime limits and capability enforcement; see the [NSH reference map](../architecture/nsh-feature-parity.md).
+The SolidJS Native application framework may load UI modules at runtime, including team-authored or generated screens. Dynamic code runs inside a native host process and may otherwise inherit dangerous privileges. NSH is an implementation reference for runtime limits and capability enforcement; see the [NSH reference map](../architecture/nsh-feature-parity.md).
 
 ## Decision
 

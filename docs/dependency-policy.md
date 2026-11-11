@@ -155,7 +155,7 @@ The following are architecture selections or prototype candidates, not entries i
 
 The project currently declares Rust MSRV 1.87 and pins Rust 1.99.1 for development. Taffy 0.15.1 and the AccessKit 0.25.2 core crate declare MSRV 1.71 and 1.85 respectively ([AccessKit release history](https://docs.rs/crate/accesskit/0.25.2/source/CHANGELOG.md)); platform adapter crates are separate packages and can require a newer compiler, so their exact MSRV must be checked individually at the relevant platform milestone. The Stylo 0.18.0 manifest does not declare a workspace `rust-version`; its full transitive graph and build script must be checked in the M3 prototype. Do not infer Stylo's MSRV from Servo's workspace. `style-engine` 1.0.0 requires Rust 1.90 and is not an executable candidate while project MSRV remains 1.87; keep it as a source-level reference unless a separate MSRV decision is explicitly approved.
 
-No separate GPU renderer or embedded browser engine is selected for native rendering. Phaser preview is a separate Web-target workload executed by a normal browser; it does not add browser-engine dependencies to the native runtime.
+No separate GPU renderer or embedded browser engine is selected for native rendering. Browser-only workloads are separate Web-target workloads executed by a normal browser; they do not add browser-engine dependencies to the native runtime.
 
 ## 8. QuickJS-NG and rquickjs version split
 
