@@ -64,6 +64,38 @@ fn main() -> ExitCode {
             println!("Rust UiTree committed: root={}, nodes={node_count}, revision=1, mount batches={mount_count}", root_id.get());
             println!("Solid counter initial text: {initial_text}");
 
+            {
+                let host = state
+                    .try_borrow()
+                    .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
+                let mount = host
+                    .sink()
+                    .commits()
+                    .front()
+                    .ok_or_else(|| Exception::throw_internal(&ctx, "HeadlessMountSink missed the initial mount"))?;
+                let has_view = mount.delta.iter().any(|operation| {
+                    matches!(operation, sn_core::HostOperation::CreateElement { tag, .. } if tag == "view")
+                });
+                let has_button = mount.delta.iter().any(|operation| {
+                    matches!(operation, sn_core::HostOperation::CreateElement { tag, .. } if tag == "button")
+                });
+                let has_initial_count = mount.delta.iter().any(|operation| {
+                    matches!(operation, sn_core::HostOperation::CreateText { text, .. } if text == "Count: 0")
+                });
+                let has_click_binding = mount.delta.iter().any(|operation| {
+                    matches!(operation, sn_core::HostOperation::BindEvent { event, .. } if event == "click")
+                });
+                let has_insert = mount.delta.iter().any(|operation| {
+                    matches!(operation, sn_core::HostOperation::InsertNode { .. })
+                });
+                if !has_view || !has_button || !has_initial_count || !has_click_binding || !has_insert {
+                    return Err(Exception::throw_internal(
+                        &ctx,
+                        "HeadlessMountSink initial mount delta is missing the expected Counter operations",
+                    ));
+                }
+            }
+
             if !dispatch_event_and_flush(&ctx, &state, button_id, "click")? {
                 return Err(Exception::throw_internal(&ctx, "Counter click event was not dispatched"));
             }
@@ -82,8 +114,16 @@ fn main() -> ExitCode {
             }
             let update_batch = host.sink().commits().back()
                 .ok_or_else(|| Exception::throw_internal(&ctx, "Missing headless mount update"))?;
-            if !update_batch.delta.iter().any(|operation| matches!(operation, sn_core::HostOperation::ReplaceText { .. })) {
-                return Err(Exception::throw_internal(&ctx, "HeadlessMountSink update delta has no ReplaceText operation"));
+            let replace_text_count = update_batch
+                .delta
+                .iter()
+                .filter(|operation| matches!(operation, sn_core::HostOperation::ReplaceText { .. }))
+                .count();
+            if update_batch.delta.len() != 1 || replace_text_count != 1 {
+                return Err(Exception::throw_internal(
+                    &ctx,
+                    "HeadlessMountSink signal update delta must contain exactly one ReplaceText operation",
+                ));
             }
             println!("QuickJS click dispatched to JS callback; Rust UiTree text updated: {updated_text}");
             drop(host);
