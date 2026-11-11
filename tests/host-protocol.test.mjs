@@ -66,3 +66,9 @@ test("rejects unpaired UTF-16 surrogate input", () => {
   encoder.createText("\ud800");
   assert.throws(() => encoder.encode(), /unpaired high surrogate/);
 });
+
+test("rejects NUL in protocol strings before crossing the host boundary", () => {
+  const encoder = new HostBatchEncoder();
+  encoder.createElement(`root${String.fromCharCode(0)}unsafe`);
+  assert.throws(() => encoder.encode(), /cannot contain NUL/);
+});

@@ -35,6 +35,7 @@ const PROTOCOL_MINOR = 0;
 declare global {
   var __sn_host_config: { surfaceId: number; sessionGeneration: number } | undefined;
   var __sn_register_callback: ((callback: (event: unknown) => void) => number) | undefined;
+  var __sn_discard_pending_callbacks: (() => void) | undefined;
   var __sn_apply_batch: ((bytes: Uint8Array) => HostBatchAck) | undefined;
   var __sn_dispose: (() => void) | undefined;
 }
@@ -333,9 +334,18 @@ export class HostBatchEncoder {
     const apply = globalThis.__sn_apply_batch;
     if (!apply) throw new Error("Native host batch binding is not installed");
 
+    let bytes: Uint8Array;
+    try {
+      bytes = this.encode();
+    } catch (error) {
+      globalThis.__sn_discard_pending_callbacks?.();
+      this.operations = [];
+      throw error;
+    }
+
     let ack: HostBatchAck;
     try {
-      ack = apply(this.encode());
+      ack = apply(bytes);
     } catch (error) {
       this.poisoned = true;
       this.operations = [];

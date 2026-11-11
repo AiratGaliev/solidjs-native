@@ -148,6 +148,17 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
     })?;
     ctx.globals().set("__sn_register_callback", register_callback)?;
 
+    let discard_pending_callbacks = Function::new(ctx.clone(), {
+        let state = state.clone();
+        move |ctx: Ctx<'js>| -> rquickjs::Result<()> {
+            let mut host = state.try_borrow_mut()
+                .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
+            host.prune_callbacks();
+            Ok(())
+        }
+    })?;
+    ctx.globals().set("__sn_discard_pending_callbacks", discard_pending_callbacks)?;
+
     let apply_batch = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, bytes: TypedArray<'js, u8>| -> rquickjs::Result<Object<'js>> {
@@ -300,6 +311,25 @@ mod tests {
                 assert_eq!(host.callback_count(), 0);
             }
             assert_eq!(state.borrow().sink().commits().len(), 24);
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn encoding_failure_can_release_uncommitted_callback_roots() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(SurfaceId::new(1), SessionGeneration::new(1))));
+
+        context.with(|ctx| -> rquickjs::Result<()> {
+            install_host_bindings(ctx.clone(), state.clone())?;
+            let _: u32 = ctx.eval("globalThis.__sn_register_callback(() => {})")?;
+            assert_eq!(state.borrow().callback_count(), 1);
+
+            let discard: Function = ctx.globals().get("__sn_discard_pending_callbacks")?;
+            discard.call::<_, ()>(())?;
+            assert_eq!(state.borrow().callback_count(), 0);
+            assert_eq!(state.borrow().tree.revision(), 0);
             Ok(())
         }).unwrap();
     }
