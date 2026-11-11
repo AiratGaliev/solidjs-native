@@ -51,6 +51,14 @@ declare global {
   var __sn_dispose: (() => void) | undefined;
 }
 
+function copyByteArray(source: readonly number[]): Uint8Array {
+  const result = new Uint8Array(source.length);
+  for (let index = 0; index < source.length; index += 1) {
+    result[index] = source[index] ?? 0;
+  }
+  return result;
+}
+
 function encodeUtf8(value: string): Uint8Array {
   if (value.includes(String.fromCharCode(0))) throw new TypeError("Host protocol strings cannot contain NUL");
   const bytes: number[] = [];
@@ -80,7 +88,7 @@ function encodeUtf8(value: string): Uint8Array {
       bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
     }
   }
-  return Uint8Array.from(bytes);
+  return copyByteArray(bytes);
 }
 
 class StringArena {
@@ -95,7 +103,7 @@ class StringArena {
   }
 
   toUint8Array(): Uint8Array {
-    return Uint8Array.from(this.bytes);
+    return copyByteArray(this.bytes);
   }
 }
 
