@@ -32,7 +32,7 @@ These rules apply to human contributors and automated coding agents working in t
 
 ## Verification and reporting
 
-- Run `pnpm check` before requesting review. It is the current fast gate: TypeScript typecheck, Vite build, Rust formatting, Clippy and workspace tests.
+- Run `pnpm check` before requesting review. It is the current fast gate: TypeScript typecheck, Vite build, JS host-protocol encoder tests, Rust formatting, Clippy and workspace tests.
 - Run focused checks while iterating. Run `pnpm smoke` when changing the embedded QuickJS/TSX runtime integration; in CI the promotion workflow runs it only on `dev → test`.
 - Do not describe `pnpm smoke` as native-window or GUI acceptance. The current M0 proof is not native UI or cross-platform support.
 - Do not claim platform support from cross-compilation alone. Use real target-OS integration evidence as defined in `docs/testing-and-acceptance.md`.

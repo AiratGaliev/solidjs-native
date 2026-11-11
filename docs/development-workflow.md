@@ -50,7 +50,7 @@ Workflow: `.github/workflows/ci.yml`.
 - Validate the branch routing above.
 - Install JavaScript dependencies from `pnpm-lock.yaml` using `pnpm install --frozen-lockfile`.
 - Use Node.js 24 in CI, pnpm 12.18.0 from the `packageManager` field, and the Rust 1.99.1 toolchain pinned in `rust-toolchain.toml`.
-- Run `pnpm check`: TypeScript typecheck, Vite production build, Rust formatting, Clippy and workspace tests.
+- Run `pnpm check`: TypeScript typecheck, Vite production build, JavaScript host-protocol encoder tests, Rust formatting, Clippy and workspace tests.
 - Use read-only GitHub token permissions and cancel superseded PR runs.
 
 Fast CI must remain suitable for the ordinary feature feedback loop. Do not put the full GUI/platform E2E suite into this workflow.

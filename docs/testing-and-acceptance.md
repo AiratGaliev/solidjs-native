@@ -47,6 +47,7 @@ pnpm check
 The actual `pnpm check` script runs:
 - `pnpm typecheck` — TypeScript compiler check;
 - `pnpm build` — Vite production build;
+- `pnpm test:host-protocol` — Node.js built-in test runner for the TypeScript binary encoder and golden wire fixture;
 - `cargo fmt --all -- --check` — Rust formatting;
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` — Clippy with warnings treated as errors;
 - `cargo test --workspace --locked` — Rust workspace tests.
