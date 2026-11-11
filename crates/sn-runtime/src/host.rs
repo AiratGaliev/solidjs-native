@@ -273,6 +273,17 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
             // QuickJS execution is single-threaded for this context. Copy the
             // typed array synchronously; no JS backing-store reference escapes.
             let owned = unsafe { bytes.as_slice() }.to_vec();
+            // Allocate the ACK object and all property slots before committing.
+            // Once apply_encoded succeeds, updating these existing numeric values
+            // cannot require creating a new object shape after the UiTree commit.
+            let result = Object::new(ctx.clone())?;
+            result.set("ok", false)?;
+            result.set("surfaceId", 0u64)?;
+            result.set("sessionGeneration", 0u64)?;
+            result.set("transactionId", 0u64)?;
+            result.set("revision", 0u64)?;
+            result.set("nextNodeId", 0u64)?;
+
             let mut host = state
                 .try_borrow_mut()
                 .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
@@ -280,13 +291,12 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
                 .apply_encoded(&owned)
                 .map_err(|error| Exception::throw_type(&ctx, &error.to_string()))?;
 
-            let result = Object::new(ctx.clone())?;
-            result.set("ok", true)?;
             result.set("surfaceId", ack.surface_id.get())?;
             result.set("sessionGeneration", ack.session_generation.get())?;
             result.set("transactionId", ack.transaction_id)?;
             result.set("revision", ack.revision)?;
             result.set("nextNodeId", ack.next_node_id)?;
+            result.set("ok", true)?;
             Ok(result)
         }
     })?;
