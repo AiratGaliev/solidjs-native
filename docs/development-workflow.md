@@ -49,7 +49,7 @@ Workflow: `.github/workflows/ci.yml`.
 
 - Validate the branch routing above.
 - Install JavaScript dependencies from `pnpm-lock.yaml` using `pnpm install --frozen-lockfile`.
-- Use the repository-pinned Node and Rust toolchains.
+- Use Node.js 24 in CI, pnpm 12.18.0 from the `packageManager` field, and the Rust 1.99.1 toolchain pinned in `rust-toolchain.toml`.
 - Run `pnpm check`: TypeScript typecheck, Vite production build, Rust formatting, Clippy and workspace tests.
 - Use read-only GitHub token permissions and cancel superseded PR runs.
 
@@ -104,7 +104,7 @@ Run focused package/test commands while iterating. Before PR, run the complete r
 - Every implementation, documentation or maintenance PR for project work must link the corresponding Linear issue from the SolidJS Native workspace.
 - Work against the current issue scope and acceptance criteria; do not rely on an outdated chat summary or an unlinked task description.
 - Use milestone parent issues and child issues only for independently verifiable work packages.
-- Update issue state from observed work only. SOL currently has no `In Review` state; status meanings and Definition of Done are defined in [Engineering Workflow](engineering-workflow.md).
+- Update issue state from observed work only: keep active implementation in `In Progress`; move to `In Review` when a non-draft PR is ready for review and focused verification is complete; return to `In Progress` when review requests changes; move to `Done` only after merge and the Definition of Done. Full state semantics are defined in [Engineering Workflow](engineering-workflow.md).
 - Record follow-up defects as separate Linear issues; do not silently expand scope.
 - Link PRs, commits and test evidence to the Linear issue.
 

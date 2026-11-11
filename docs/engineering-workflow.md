@@ -66,18 +66,19 @@ Priority is not a substitute for milestone order or dependency relations. Do not
 
 ## 4. Linear state semantics
 
-The SOL team currently has these states: `Backlog`, `Todo`, `In Progress`, `Done`, `Canceled` and `Duplicate`. There is currently no separate `In Review` state; do not assign or assume a state that is not configured.
+The SOL team uses these states: `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`, `Canceled` and `Duplicate`. `In Review` is a `Started`-category state placed after `In Progress` and before the completed `Done` stage.
 
 | State | Meaning | Transition guidance |
 |---|---|---|
 | `Backlog` | Valid work that is not yet ready or scheduled for active delivery. | Move to `Todo` when scope, dependencies and acceptance criteria are ready. |
 | `Todo` | Refined work that has not started. | Move to `In Progress` when implementation or the planned investigation actually begins. |
-| `In Progress` | Active implementation, research, tests, documentation, PR preparation or outstanding review/CI work. | Keep here until all issue criteria, required checks and review/merge conditions are satisfied. |
+| `In Progress` | Active implementation, research, tests, documentation or PR preparation. | Move to `In Review` when implementation and focused verification are complete and a non-draft PR is ready for review. Return to `In Progress` if review findings require further implementation. |
+| `In Review` | Implementation submitted for review; the PR is under review and/or required CI checks are pending. | Keep here while review and required checks are pending. Return to `In Progress` when changes are requested or implementation resumes. Move to `Done` only after merge and all applicable DoD conditions are met. |
 | `Done` | The issue's own Definition of Done is satisfied and evidence is recorded. | Do not use merely because a PR exists, code compiles or a milestone parent is mostly complete. |
 | `Canceled` | The work was intentionally stopped and will not be delivered in this scope. | Record the reason and any replacement decision. |
 | `Duplicate` | The issue duplicates a canonical issue. | Link the canonical issue and preserve relevant context. |
 
-If Linear workflow configuration later adds an `In Review` state, update this document and the SOL team guide before adopting it. Until then, an open PR remains `In Progress`.
+Move an issue to `In Review` only when its non-draft PR is ready for review and focused verification is complete. An open draft PR or ongoing implementation remains `In Progress`. If review requires code or documentation changes, return the issue to `In Progress`; once the revision is ready for review again, move it back to `In Review`.
 
 State changes must reflect observed work, not intended progress or board cleanup. Do not mass-close or reclassify issues without checking their individual acceptance criteria.
 
