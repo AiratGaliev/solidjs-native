@@ -78,3 +78,27 @@ test("rejects unpaired low UTF-16 surrogate input", () => {
   encoder.createText(String.fromCharCode(0xdc00));
   assert.throws(() => encoder.encode(), /unpaired low surrogate/);
 });
+
+
+test("discards uncommitted callback roots and poisons the adapter after encode failure", () => {
+  const previousRegister = globalThis.__sn_register_callback;
+  const previousDiscard = globalThis.__sn_discard_pending_callbacks;
+  let discarded = 0;
+  globalThis.__sn_register_callback = () => 7;
+  globalThis.__sn_discard_pending_callbacks = () => { discarded += 1; };
+
+  try {
+    const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
+    const handlerId = encoder.registerCallback(() => {});
+    encoder.bindEvent(1, String.fromCharCode(0xd800), handlerId);
+
+    assert.throws(() => encoder.flush(), /unpaired high surrogate/);
+    assert.equal(discarded, 1);
+    assert.throws(() => encoder.createElement("root"), /poisoned/);
+  } finally {
+    if (previousRegister === undefined) delete globalThis.__sn_register_callback;
+    else globalThis.__sn_register_callback = previousRegister;
+    if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
+    else globalThis.__sn_discard_pending_callbacks = previousDiscard;
+  }
+});

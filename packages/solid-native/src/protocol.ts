@@ -340,6 +340,7 @@ export class HostBatchEncoder {
     } catch (error) {
       globalThis.__sn_discard_pending_callbacks?.();
       this.operations = [];
+      this.poisoned = true;
       throw error;
     }
 
