@@ -39,8 +39,11 @@ function eventName(propertyName: string): string | undefined {
 
 function isDescendant(candidate: NativeNode, ancestor: NativeNode): boolean {
   let current = candidate.parent;
+  const visited = new Set<NativeNode>();
   while (current) {
     if (current === ancestor) return true;
+    if (visited.has(current)) throw new Error("NativeNode parent topology contains a cycle");
+    visited.add(current);
     current = current.parent;
   }
   return false;
@@ -48,8 +51,11 @@ function isDescendant(candidate: NativeNode, ancestor: NativeNode): boolean {
 
 function clearLocalSubtree(node: NativeNode): void {
   const pending = [node];
+  const visited = new Set<NativeNode>();
   while (pending.length > 0) {
     const current = pending.pop()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
     for (const child of current.children) pending.push(child);
     current.eventHandlerIds.clear();
     current.parent = null;
@@ -104,7 +110,9 @@ const renderer = createRenderer<NativeNode>({
     assertCurrentHandle(node, "insert child");
     if (anchor) assertCurrentHandle(anchor, "insert anchor");
     if (parent === node || isDescendant(parent, node)) throw new TypeError("Cannot insert a node into itself or its descendant");
-    if (anchor && anchor.parent !== parent) throw new TypeError("Insert anchor must be a child of the target parent");
+    if (anchor && (anchor.parent !== parent || !parent.children.includes(anchor))) {
+      throw new TypeError("Insert anchor must be a child of the target parent");
+    }
     if (anchor === node) return;
 
     if (node.parent) {
@@ -140,6 +148,7 @@ const renderer = createRenderer<NativeNode>({
   getNextSibling(node) {
     if (!node.parent) return undefined;
     const index = node.parent.children.indexOf(node);
+    if (index < 0) throw new Error("NativeNode parent/children topology is inconsistent");
     return node.parent.children[index + 1] ?? undefined;
   },
 });
