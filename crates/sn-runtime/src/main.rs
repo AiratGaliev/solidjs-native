@@ -189,7 +189,9 @@ fn main() -> ExitCode {
     // Otherwise Runtime teardown can hit QuickJS's non-empty GC root assertion.
     match state.try_borrow_mut() {
         Ok(mut host) => host.dispose(),
-        Err(_) => eprintln!("failed to dispose host state before QuickJS runtime teardown: state is still borrowed"),
+        Err(_) => eprintln!(
+            "failed to dispose host state before QuickJS runtime teardown: state is still borrowed"
+        ),
     }
 
     match result {
