@@ -17,22 +17,68 @@ use sn_core::BatchHeader;
 pub type SharedHostState = Rc<RefCell<HostState>>;
 
 const MAX_RETAINED_HEADLESS_COMMITS: usize = 64;
+const MAX_RETAINED_HEADLESS_BYTES: usize = MAX_BATCH_BYTES;
 
 #[derive(Debug, Default)]
 pub struct HeadlessMountSink {
     commits: VecDeque<CommitAck>,
+    retained_bytes: usize,
 }
 
 impl HeadlessMountSink {
     fn commit(&mut self, ack: CommitAck) {
-        if self.commits.len() == MAX_RETAINED_HEADLESS_COMMITS {
-            self.commits.pop_front();
+        let ack_bytes = estimate_ack_bytes(&ack);
+        if ack_bytes > MAX_RETAINED_HEADLESS_BYTES {
+            return;
         }
+
+        while self.commits.len() >= MAX_RETAINED_HEADLESS_COMMITS
+            || self.retained_bytes.saturating_add(ack_bytes) > MAX_RETAINED_HEADLESS_BYTES
+        {
+            let Some(removed) = self.commits.pop_front() else {
+                break;
+            };
+            self.retained_bytes = self
+                .retained_bytes
+                .saturating_sub(estimate_ack_bytes(&removed));
+        }
+
+        self.retained_bytes += ack_bytes;
         self.commits.push_back(ack);
     }
 
     pub fn commits(&self) -> &VecDeque<CommitAck> {
         &self.commits
+    }
+}
+
+fn estimate_ack_bytes(ack: &CommitAck) -> usize {
+    use std::mem::size_of;
+
+    let inline_bytes = ack.delta.len().saturating_mul(size_of::<HostOperation>());
+    ack.delta.iter().fold(inline_bytes, |total, operation| {
+        total.saturating_add(operation_string_bytes(operation))
+    })
+}
+
+fn operation_string_bytes(operation: &HostOperation) -> usize {
+    match operation {
+        HostOperation::CreateElement { tag, .. } => tag.len(),
+        HostOperation::CreateText { text, .. }
+        | HostOperation::ReplaceText { text, .. } => text.len(),
+        HostOperation::SetProperty { name, value, .. } => {
+            name.len()
+                + match value {
+                    sn_core::PropertyValue::String(value) => value.len(),
+                    _ => 0,
+                }
+        }
+        HostOperation::RemoveProperty { name, .. }
+        | HostOperation::AttachResource { name, .. }
+        | HostOperation::DetachResource { name, .. } => name.len(),
+        HostOperation::BindEvent { event, .. }
+        | HostOperation::UnbindEvent { event, .. } => event.len(),
+        HostOperation::InsertNode { .. } | HostOperation::RemoveNode { .. } => 0,
     }
 }
 
@@ -473,6 +519,33 @@ mod tests {
         assert_eq!(
             sink.commits().back().map(|ack| ack.transaction_id),
             Some(69)
+        );
+    }
+
+    #[test]
+    fn headless_mount_sink_enforces_a_total_retained_byte_budget() {
+        let mut sink = HeadlessMountSink::default();
+        let large_text = "x".repeat(1024 * 1024);
+
+        for transaction_id in 1..=5 {
+            sink.commit(CommitAck {
+                surface_id: SurfaceId::new(1),
+                session_generation: SessionGeneration::new(1),
+                transaction_id,
+                revision: transaction_id,
+                next_node_id: 1,
+                delta: vec![HostOperation::CreateText {
+                    id: NodeId::new(transaction_id),
+                    text: large_text.clone(),
+                }],
+            });
+        }
+
+        assert!(sink.retained_bytes <= MAX_RETAINED_HEADLESS_BYTES);
+        assert!(sink.commits().len() < 5);
+        assert_eq!(
+            sink.commits().back().map(|ack| ack.transaction_id),
+            Some(5)
         );
     }
 
