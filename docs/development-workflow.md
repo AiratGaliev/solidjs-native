@@ -49,7 +49,7 @@ Workflow: `.github/workflows/ci.yml`.
 
 - Validate the branch routing above.
 - Install JavaScript dependencies from `pnpm-lock.yaml` using `pnpm install --frozen-lockfile`.
-- Use the repository-pinned Node and Rust toolchains.
+- Use Node.js 24 in CI, pnpm 12.18.0 from the `packageManager` field, and the Rust 1.99.1 toolchain pinned in `rust-toolchain.toml`.
 - Run `pnpm check`: TypeScript typecheck, Vite production build, Rust formatting, Clippy and workspace tests.
 - Use read-only GitHub token permissions and cancel superseded PR runs.
 
@@ -97,14 +97,18 @@ The `pnpm check` command is the single fast gate and includes:
 
 Run focused package/test commands while iterating. Before PR, run the complete relevant fast gate and record any omitted checks.
 
-## 5. Linear issue hygiene
+## 5. Linear project and issue hygiene
 
-- Every implementation PR links a Linear issue in the SolidJS Native project.
-- Issues must describe the outcome, constraints, dependencies, test plan and measurable acceptance criteria.
-- Use parent issues for milestone outcomes and child issues for independently verifiable work packages.
-- Update issue status from observed work state only. `Done` means the issue's DoD is satisfied, not merely that a PR was opened or code compiled.
-- Record follow-up defects as separate issues; do not silently expand scope.
-- Link PRs, commits and test evidence to the issue.
+[Linear](https://linear.app/solidjs-native) is the source of truth for SolidJS Native project tasks and planning. Use it to find the current backlog, priorities, milestones, dependencies, issue status and acceptance criteria before starting work. Do not treat GitHub Issues as the project task backlog; GitHub is used for repository history, pull requests, code review and CI.
+
+- Every implementation, documentation or maintenance PR for project work must link the corresponding Linear issue from the SolidJS Native workspace.
+- Work against the current issue scope and acceptance criteria; do not rely on an outdated chat summary or an unlinked task description.
+- Use milestone parent issues and child issues only for independently verifiable work packages.
+- Update issue state from observed work only: keep active implementation in `In Progress`; move to `In Review` when a non-draft PR is ready for review and focused verification is complete; return to `In Progress` when review requests changes; move to `Done` only after merge and the Definition of Done. Full state semantics are defined in [Engineering Workflow](engineering-workflow.md).
+- Record follow-up defects as separate Linear issues; do not silently expand scope.
+- Link PRs, commits and test evidence to the Linear issue.
+
+See [Engineering Workflow](engineering-workflow.md) for the complete Linear working agreement.
 
 ## 6. Definition of Ready
 
@@ -140,8 +144,16 @@ A compiling crate, green fast CI, merged PR or screenshot alone does not complet
 - Do not claim a target platform is supported based on cross-compilation alone.
 - Performance claims require reproducible representative benchmarks.
 
-## 9. GitHub repository security settings — separate setup step
+## 9. GitHub repository protection
 
-The workflow files intentionally use least-privilege `contents: read` permissions. They do not enforce repository-level branch protection or access control.
+Repository protection is enforced by the active GitHub Rulesets `protect-dev`, `protect-test` and `protect-main`. The rulesets require pull requests, block branch deletion and non-fast-forward updates, and require the following status checks:
 
-After the GitHub repository exists, configure and verify GitHub Rulesets/branch protection for `main`, `dev` and `test`: require PRs, require the appropriate fast checks, require promotion acceptance for `test`, restrict direct updates/deletions/force-pushes, and tune approvals/bypass actors to the actual maintainer model. Also review Actions permissions, Dependabot alerts/security updates, secret scanning and push protection. These settings are intentionally not changed by this local setup task.
+| Protected branch | Required status checks |
+|---|---|
+| `dev` | `validate-branch-routing`, `fast-checks` |
+| `test` | `validate-branch-routing`, `fast-checks`, `runtime-integration-acceptance` |
+| `main` | `validate-branch-routing`, `fast-checks` |
+
+The rulesets currently require zero reviewer approvals and allow merge, squash and rebase methods. No actor is configured to bypass the rules. Treat GitHub Rulesets as the enforcement layer and this document as the contributor-facing explanation; verify the live rulesets before changing this section.
+
+Workflow YAML also uses least-privilege `contents: read` permissions. Changes to Actions permissions, third-party actions, secrets, Dependabot, secret scanning or push protection require a separate security review. Never infer repository protection from workflow YAML alone.
