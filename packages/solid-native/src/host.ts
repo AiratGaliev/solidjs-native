@@ -175,7 +175,8 @@ export function render(code: () => unknown, root: NativeNode) {
     try {
       dispose?.();
     } catch {
-      // Preserve the original mount/commit failure; the whole host session is aborted below.
+      // Preserve the original mount/commit failure; the adapter is poisoned below.
+      // Its owner must dispose and remount this Surface before further use.
     }
     clearLocalSubtree(root);
     encoder.poison();
