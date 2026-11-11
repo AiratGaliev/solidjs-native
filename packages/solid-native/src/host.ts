@@ -178,7 +178,7 @@ export function render(code: () => unknown, root: NativeNode) {
       // Preserve the original mount/commit failure; the whole host session is aborted below.
     }
     clearLocalSubtree(root);
-    encoder.abort();
+    encoder.poison();
     throw error;
   }
 
