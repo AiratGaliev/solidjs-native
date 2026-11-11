@@ -64,8 +64,9 @@ fn estimate_ack_bytes(ack: &CommitAck) -> usize {
 fn operation_string_bytes(operation: &HostOperation) -> usize {
     match operation {
         HostOperation::CreateElement { tag, .. } => tag.len(),
-        HostOperation::CreateText { text, .. }
-        | HostOperation::ReplaceText { text, .. } => text.len(),
+        HostOperation::CreateText { text, .. } | HostOperation::ReplaceText { text, .. } => {
+            text.len()
+        }
         HostOperation::SetProperty { name, value, .. } => {
             name.len()
                 + match value {
@@ -76,8 +77,9 @@ fn operation_string_bytes(operation: &HostOperation) -> usize {
         HostOperation::RemoveProperty { name, .. }
         | HostOperation::AttachResource { name, .. }
         | HostOperation::DetachResource { name, .. } => name.len(),
-        HostOperation::BindEvent { event, .. }
-        | HostOperation::UnbindEvent { event, .. } => event.len(),
+        HostOperation::BindEvent { event, .. } | HostOperation::UnbindEvent { event, .. } => {
+            event.len()
+        }
         HostOperation::InsertNode { .. } | HostOperation::RemoveNode { .. } => 0,
     }
 }
@@ -543,10 +545,7 @@ mod tests {
 
         assert!(sink.retained_bytes <= MAX_RETAINED_HEADLESS_BYTES);
         assert!(sink.commits().len() < 5);
-        assert_eq!(
-            sink.commits().back().map(|ack| ack.transaction_id),
-            Some(5)
-        );
+        assert_eq!(sink.commits().back().map(|ack| ack.transaction_id), Some(5));
     }
 
     #[test]
