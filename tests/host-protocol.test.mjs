@@ -112,8 +112,8 @@ test("aborts the Surface and releases uncommitted callback roots after encode fa
 
     assert.throws(() => encoder.flush(), /unpaired high surrogate/);
     assert.equal(discarded, 1);
-    assert.equal(disposed, 1);
-    assert.throws(() => encoder.createElement("root"), /disposed/);
+    assert.equal(disposed, 0);
+    assert.throws(() => encoder.createElement("root"), /poisoned/);
   } finally {
     if (previousRegister === undefined) delete globalThis.__sn_register_callback;
     else globalThis.__sn_register_callback = previousRegister;
@@ -142,8 +142,42 @@ test("aborts the session when the native batch binding rejects a transaction", (
     encoder.createElement("root");
     assert.throws(() => encoder.flush(), /native rejection/);
     assert.equal(discarded, 1);
+    assert.equal(disposed, 0);
+    assert.throws(() => encoder.createElement("after-failure"), /poisoned/);
+  } finally {
+    if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
+    else globalThis.__sn_discard_pending_callbacks = previousDiscard;
+    if (previousDispose === undefined) delete globalThis.__sn_dispose;
+    else globalThis.__sn_dispose = previousDispose;
+    if (previousApply === undefined) delete globalThis.__sn_apply_batch;
+    else globalThis.__sn_apply_batch = previousApply;
+  }
+});
+
+test("aborts the Surface when the native acknowledgement cannot be trusted", () => {
+  const previousDiscard = globalThis.__sn_discard_pending_callbacks;
+  const previousDispose = globalThis.__sn_dispose;
+  const previousApply = globalThis.__sn_apply_batch;
+  let discarded = 0;
+  let disposed = 0;
+  globalThis.__sn_discard_pending_callbacks = () => { discarded += 1; };
+  globalThis.__sn_dispose = () => { disposed += 1; };
+  globalThis.__sn_apply_batch = () => ({
+    ok: true,
+    surfaceId: 1,
+    sessionGeneration: 1,
+    transactionId: 1,
+    revision: 0,
+    nextNodeId: 2,
+  });
+
+  try {
+    const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
+    encoder.createElement("root");
+    assert.throws(() => encoder.flush(), /mis-acknowledged/);
+    assert.equal(discarded, 1);
     assert.equal(disposed, 1);
-    assert.throws(() => encoder.createElement("after-failure"), /disposed/);
+    assert.throws(() => encoder.createElement("after-invalid-ack"), /disposed/);
   } finally {
     if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
     else globalThis.__sn_discard_pending_callbacks = previousDiscard;
