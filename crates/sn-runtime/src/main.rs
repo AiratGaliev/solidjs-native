@@ -184,6 +184,14 @@ fn main() -> ExitCode {
         execution
     });
 
+    // Persistent QuickJS callback roots must be released while the runtime
+    // is still alive, even when smoke assertions or JS execution fail.
+    // Otherwise Runtime teardown can hit QuickJS's non-empty GC root assertion.
+    match state.try_borrow_mut() {
+        Ok(mut host) => host.dispose(),
+        Err(_) => eprintln!("failed to dispose host state before QuickJS runtime teardown: state is still borrowed"),
+    }
+
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
