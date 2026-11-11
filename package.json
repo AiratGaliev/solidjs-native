@@ -9,7 +9,7 @@
     "build": "vite build --config packages/solid-native/vite.config.ts",
     "smoke": "pnpm build && cargo run --locked -p sn-runtime -- dist/solid-native-demo.js",
     "typecheck": "tsc --noEmit",
-    "test:rust": "cargo test --workspace --locked",
+    "test:rust": "cargo test --workspace --locked -- --test-threads=1 --nocapture",
     "format:rust:check": "cargo fmt --all -- --check",
     "lint:rust": "cargo clippy --workspace --all-targets --locked -- -D warnings",
     "check:rust": "pnpm format:rust:check && pnpm lint:rust && pnpm test:rust",
