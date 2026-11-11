@@ -87,12 +87,17 @@ const renderer = createRenderer<NativeNode>({
       return;
     }
 
-    if (typeof value === "function" || (typeof value === "object" && value !== null)) {
-      throw new TypeError(`Property ${name} must use a supported primitive value`);
-    }
     if (value === undefined) {
       encoder.removeProperty(node.nodeId, name);
       return;
+    }
+    if (
+      value !== null &&
+      typeof value !== "string" &&
+      typeof value !== "number" &&
+      typeof value !== "boolean"
+    ) {
+      throw new TypeError(`Property ${name} must use a supported primitive value`);
     }
     const hostValue = value as HostValue;
     encoder.setProperty(node.nodeId, name, hostValue);

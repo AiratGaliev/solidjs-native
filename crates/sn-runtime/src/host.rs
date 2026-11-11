@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray};
+use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray, Value};
 
 use sn_core::{
     CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId, ProtocolError,
@@ -303,7 +303,7 @@ pub fn dispatch_event_and_flush<'js>(
     let dispatched = dispatch_event(ctx, state, node_id, event_name)?;
     if dispatched {
         let flush: Function = ctx.globals().get("__sn_flush_host_batch")?;
-        let _: Object = flush.call(())?;
+        let _: Value<'js> = flush.call(())?;
     }
     Ok(dispatched)
 }
@@ -393,6 +393,58 @@ mod tests {
             assert_eq!(state.borrow().sink().commits().len(), 24);
             Ok(())
         }).unwrap();
+    }
+
+    #[test]
+    fn event_without_ui_mutations_accepts_an_empty_flush() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(
+            SurfaceId::new(3),
+            SessionGeneration::new(5),
+        )));
+
+        context
+            .with(|ctx| -> rquickjs::Result<()> {
+                install_host_bindings(ctx.clone(), state.clone())?;
+                ctx.eval::<(), _>("globalThis.__event_hits = 0; globalThis.__sn_flush_host_batch = () => undefined")?;
+                let handler_id: u32 = ctx.eval(
+                    "globalThis.__sn_register_callback(() => { globalThis.__event_hits += 1; })",
+                )?;
+
+                {
+                    let mut host = state.borrow_mut();
+                    let root = NodeId::new(1);
+                    let batch = event_batch(
+                        &host.tree,
+                        1,
+                        vec![
+                            HostOperation::CreateElement {
+                                id: root,
+                                tag: "button".into(),
+                            },
+                            HostOperation::BindEvent {
+                                id: root,
+                                event: "click".into(),
+                                handler_id: HandlerId::new(handler_id),
+                            },
+                        ],
+                    );
+                    host.commit_batch(&batch).unwrap();
+                }
+
+                assert!(dispatch_event_and_flush(
+                    &ctx,
+                    &state,
+                    NodeId::new(1),
+                    "click",
+                )?);
+                let hits: u32 = ctx.globals().get("__event_hits")?;
+                assert_eq!(hits, 1);
+                assert_eq!(state.borrow().sink().commits().len(), 1);
+                Ok(())
+            })
+            .unwrap();
     }
 
     #[test]

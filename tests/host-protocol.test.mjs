@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HostBatchEncoder } from "../packages/solid-native/src/protocol.ts";
+import { createElement, setProp } from "../packages/solid-native/src/host.ts";
 
 function viewOf(bytes) {
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -105,4 +106,11 @@ test("discards uncommitted callback roots and poisons the adapter after encode f
     if (previousApply === undefined) delete globalThis.__sn_apply_batch;
     else globalThis.__sn_apply_batch = previousApply;
   }
+});
+
+
+test("rejects unsupported symbol and bigint host properties", () => {
+  const element = createElement("view");
+  assert.throws(() => setProp(element, "data", Symbol("unsupported")), /supported primitive value/);
+  assert.throws(() => setProp(element, "data", 1n), /supported primitive value/);
 });
