@@ -1,8 +1,8 @@
 mod host_protocol;
 
 pub use host_protocol::{
-    decode_batch, BatchHeader, HostBatch, HostOperation, ProtocolError, ValueKind,
-    MAX_BATCH_BYTES, MAX_OPERATIONS,
+    BatchHeader, HostBatch, HostOperation, MAX_BATCH_BYTES, MAX_OPERATIONS, ProtocolError,
+    ValueKind, decode_batch,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,32 +12,48 @@ use thiserror::Error;
 pub struct SurfaceId(u64);
 
 impl SurfaceId {
-    pub const fn new(value: u64) -> Self { Self(value) }
-    pub const fn get(self) -> u64 { self.0 }
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+    pub const fn get(self) -> u64 {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SessionGeneration(u64);
 
 impl SessionGeneration {
-    pub const fn new(value: u64) -> Self { Self(value) }
-    pub const fn get(self) -> u64 { self.0 }
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+    pub const fn get(self) -> u64 {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u64);
 
 impl NodeId {
-    pub const fn new(value: u64) -> Self { Self(value) }
-    pub const fn get(self) -> u64 { self.0 }
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+    pub const fn get(self) -> u64 {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct HandlerId(u32);
 
 impl HandlerId {
-    pub const fn new(value: u32) -> Self { Self(value) }
-    pub const fn get(self) -> u32 { self.0 }
+    pub const fn new(value: u32) -> Self {
+        Self(value)
+    }
+    pub const fn get(self) -> u32 {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -148,12 +164,24 @@ impl UiTree {
         }
     }
 
-    pub const fn surface_id(&self) -> SurfaceId { self.surface_id }
-    pub const fn session_generation(&self) -> SessionGeneration { self.session_generation }
-    pub const fn revision(&self) -> u64 { self.revision }
-    pub const fn next_node_id(&self) -> u64 { self.next_node_id }
-    pub const fn last_transaction_id(&self) -> u64 { self.last_transaction_id }
-    pub fn node_count(&self) -> usize { self.nodes.len() }
+    pub const fn surface_id(&self) -> SurfaceId {
+        self.surface_id
+    }
+    pub const fn session_generation(&self) -> SessionGeneration {
+        self.session_generation
+    }
+    pub const fn revision(&self) -> u64 {
+        self.revision
+    }
+    pub const fn next_node_id(&self) -> u64 {
+        self.next_node_id
+    }
+    pub const fn last_transaction_id(&self) -> u64 {
+        self.last_transaction_id
+    }
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
 
     pub fn create_element(&mut self, tag: impl Into<String>) -> Result<NodeId, TreeError> {
         let tag = tag.into();
@@ -167,17 +195,23 @@ impl UiTree {
 
     fn allocate_node(&mut self, kind: NodeKind, text: Option<String>) -> Result<NodeId, TreeError> {
         let id = NodeId(self.next_node_id);
-        self.next_node_id = self.next_node_id.checked_add(1).ok_or(TreeError::NodeIdExhausted)?;
-        self.nodes.insert(id, Node {
+        self.next_node_id = self
+            .next_node_id
+            .checked_add(1)
+            .ok_or(TreeError::NodeIdExhausted)?;
+        self.nodes.insert(
             id,
-            kind,
-            text,
-            parent: None,
-            children: Vec::new(),
-            properties: BTreeMap::new(),
-            events: BTreeMap::new(),
-            resources: BTreeMap::new(),
-        });
+            Node {
+                id,
+                kind,
+                text,
+                parent: None,
+                children: Vec::new(),
+                properties: BTreeMap::new(),
+                events: BTreeMap::new(),
+                resources: BTreeMap::new(),
+            },
+        );
         self.roots.push(id);
         Ok(id)
     }
@@ -186,7 +220,9 @@ impl UiTree {
         self.nodes.get(&id).ok_or(TreeError::MissingNode(id))
     }
 
-    pub fn roots(&self) -> &[NodeId] { &self.roots }
+    pub fn roots(&self) -> &[NodeId] {
+        &self.roots
+    }
 
     pub fn find_element(&self, tag: &str) -> Option<NodeId> {
         self.nodes.values().find_map(|node| {
@@ -200,13 +236,20 @@ impl UiTree {
 
     pub fn text_content(&self, id: NodeId) -> Result<&str, TreeError> {
         let node = self.node(id)?;
-        if node.kind != NodeKind::Text { return Err(TreeError::InvalidNodeKind); }
+        if node.kind != NodeKind::Text {
+            return Err(TreeError::InvalidNodeKind);
+        }
         Ok(node.text.as_deref().unwrap_or_default())
     }
 
     pub fn find_text_containing(&self, needle: &str) -> Option<NodeId> {
         self.nodes.values().find_map(|node| {
-            if node.kind == NodeKind::Text && node.text.as_deref().is_some_and(|value| value.contains(needle)) {
+            if node.kind == NodeKind::Text
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|value| value.contains(needle))
+            {
                 Some(node.id)
             } else {
                 None
@@ -215,7 +258,10 @@ impl UiTree {
     }
 
     pub fn handler_ids(&self) -> BTreeSet<HandlerId> {
-        self.nodes.values().flat_map(|node| node.events.values().copied()).collect()
+        self.nodes
+            .values()
+            .flat_map(|node| node.events.values().copied())
+            .collect()
     }
 
     pub fn set_property(
@@ -226,10 +272,10 @@ impl UiTree {
     ) -> Result<(), TreeError> {
         let name = name.into();
         validate_name(&name, "property name", 256)?;
-        if let PropertyValue::Number(value) = value {
-            if !value.is_finite() { return Err(TreeError::NonFiniteNumber); }
-            self.element_mut(id)?.properties.insert(name, PropertyValue::Number(value));
-            return Ok(());
+        if let PropertyValue::Number(number) = &value {
+            if !number.is_finite() {
+                return Err(TreeError::NonFiniteNumber);
+            }
         }
         self.element_mut(id)?.properties.insert(name, value);
         Ok(())
@@ -241,10 +287,19 @@ impl UiTree {
         child: NodeId,
         anchor: Option<NodeId>,
     ) -> Result<(), TreeError> {
-        let parent_node = self.nodes.get(&parent).ok_or(TreeError::MissingNode(parent))?;
-        if matches!(&parent_node.kind, NodeKind::Text) { return Err(TreeError::InvalidNodeKind); }
-        if !self.nodes.contains_key(&child) { return Err(TreeError::MissingNode(child)); }
-        if parent == child || self.is_descendant(parent, child) { return Err(TreeError::Cycle); }
+        let parent_node = self
+            .nodes
+            .get(&parent)
+            .ok_or(TreeError::MissingNode(parent))?;
+        if matches!(&parent_node.kind, NodeKind::Text) {
+            return Err(TreeError::InvalidNodeKind);
+        }
+        if !self.nodes.contains_key(&child) {
+            return Err(TreeError::MissingNode(child));
+        }
+        if parent == child || self.is_descendant(parent, child) {
+            return Err(TreeError::Cycle);
+        }
 
         // Validate anchor ownership before the self-anchor no-op. Otherwise a child
         // from another parent can be accepted as its own foreign anchor.
@@ -253,19 +308,34 @@ impl UiTree {
                 return Err(TreeError::InvalidAnchor);
             }
         }
-        if anchor == Some(child) { return Ok(()); }
+        if anchor == Some(child) {
+            return Ok(());
+        }
 
         self.detach(child);
         let index = anchor
-            .and_then(|anchor_id| self.nodes.get(&parent).and_then(|n| n.children.iter().position(|id| *id == anchor_id)))
+            .and_then(|anchor_id| {
+                self.nodes
+                    .get(&parent)
+                    .and_then(|n| n.children.iter().position(|id| *id == anchor_id))
+            })
             .unwrap_or_else(|| self.nodes.get(&parent).map_or(0, |n| n.children.len()));
-        self.nodes.get_mut(&parent).ok_or(TreeError::MissingNode(parent))?.children.insert(index, child);
-        self.nodes.get_mut(&child).ok_or(TreeError::MissingNode(child))?.parent = Some(parent);
+        self.nodes
+            .get_mut(&parent)
+            .ok_or(TreeError::MissingNode(parent))?
+            .children
+            .insert(index, child);
+        self.nodes
+            .get_mut(&child)
+            .ok_or(TreeError::MissingNode(child))?
+            .parent = Some(parent);
         Ok(())
     }
 
     pub fn remove(&mut self, id: NodeId) -> Result<Vec<NodeId>, TreeError> {
-        if !self.nodes.contains_key(&id) { return Err(TreeError::MissingNode(id)); }
+        if !self.nodes.contains_key(&id) {
+            return Err(TreeError::MissingNode(id));
+        }
         self.detach(id);
         let mut removed = Vec::new();
         let mut pending = vec![id];
@@ -279,16 +349,32 @@ impl UiTree {
     }
 
     pub fn apply_batch(&mut self, batch: &HostBatch) -> Result<CommitAck, TreeError> {
-        if batch.header.surface_id != self.surface_id.get() { return Err(TreeError::ForeignSurface); }
-        if batch.header.session_generation != self.session_generation.get() { return Err(TreeError::StaleSession); }
+        if batch.header.surface_id != self.surface_id.get() {
+            return Err(TreeError::ForeignSurface);
+        }
+        if batch.header.session_generation != self.session_generation.get() {
+            return Err(TreeError::StaleSession);
+        }
         if batch.header.expected_revision != self.revision {
-            return Err(TreeError::RevisionConflict { expected: self.revision, actual: batch.header.expected_revision });
+            return Err(TreeError::RevisionConflict {
+                expected: self.revision,
+                actual: batch.header.expected_revision,
+            });
         }
-        let expected_transaction = self.last_transaction_id.checked_add(1).ok_or(TreeError::TransactionIdExhausted)?;
+        let expected_transaction = self
+            .last_transaction_id
+            .checked_add(1)
+            .ok_or(TreeError::TransactionIdExhausted)?;
         if batch.header.transaction_id != expected_transaction {
-            return Err(TreeError::TransactionSequence { expected: expected_transaction, actual: batch.header.transaction_id });
+            return Err(TreeError::TransactionSequence {
+                expected: expected_transaction,
+                actual: batch.header.transaction_id,
+            });
         }
-        let next_revision = self.revision.checked_add(1).ok_or(TreeError::RevisionExhausted)?;
+        let next_revision = self
+            .revision
+            .checked_add(1)
+            .ok_or(TreeError::RevisionExhausted)?;
 
         let mut staging = self.clone();
         for operation in &batch.operations {
@@ -325,16 +411,22 @@ impl UiTree {
             }
             HostOperation::ReplaceText { id, text } => {
                 let node = self.nodes.get_mut(id).ok_or(TreeError::MissingNode(*id))?;
-                if node.kind != NodeKind::Text { return Err(TreeError::InvalidNodeKind); }
+                if node.kind != NodeKind::Text {
+                    return Err(TreeError::InvalidNodeKind);
+                }
                 node.text = Some(text.clone());
                 Ok(())
             }
             HostOperation::SetProperty { id, name, value } => {
                 validate_name(name, "property name", 256)?;
                 if let PropertyValue::Number(value) = value {
-                    if !value.is_finite() { return Err(TreeError::NonFiniteNumber); }
+                    if !value.is_finite() {
+                        return Err(TreeError::NonFiniteNumber);
+                    }
                 }
-                self.element_mut(*id)?.properties.insert(name.clone(), value.clone());
+                self.element_mut(*id)?
+                    .properties
+                    .insert(name.clone(), value.clone());
                 Ok(())
             }
             HostOperation::RemoveProperty { id, name } => {
@@ -342,49 +434,88 @@ impl UiTree {
                 self.element_mut(*id)?.properties.remove(name);
                 Ok(())
             }
-            HostOperation::InsertNode { parent, child, anchor } => self.insert_before(*parent, *child, *anchor),
+            HostOperation::InsertNode {
+                parent,
+                child,
+                anchor,
+            } => self.insert_before(*parent, *child, *anchor),
             HostOperation::RemoveNode { id } => self.remove(*id).map(|_| ()),
-            HostOperation::BindEvent { id, event, handler_id } => {
+            HostOperation::BindEvent {
+                id,
+                event,
+                handler_id,
+            } => {
                 validate_name(event, "event name", 64)?;
-                if handler_id.get() == 0 { return Err(TreeError::InvalidHandlerId); }
-                self.element_mut(*id)?.events.insert(event.clone(), *handler_id);
+                if handler_id.get() == 0 {
+                    return Err(TreeError::InvalidHandlerId);
+                }
+                self.element_mut(*id)?
+                    .events
+                    .insert(event.clone(), *handler_id);
                 Ok(())
             }
             HostOperation::UnbindEvent { id, event } => {
                 validate_name(event, "event name", 64)?;
                 let node = self.element_mut(*id)?;
-                if node.events.remove(event).is_none() { return Err(TreeError::MissingEvent(event.clone())); }
+                if node.events.remove(event).is_none() {
+                    return Err(TreeError::MissingEvent(event.clone()));
+                }
                 Ok(())
             }
-            HostOperation::AttachResource { id, name, resource_id } => {
+            HostOperation::AttachResource {
+                id,
+                name,
+                resource_id,
+            } => {
                 validate_name(name, "resource name", 256)?;
-                if *resource_id == 0 { return Err(TreeError::InvalidResourceId); }
-                self.element_mut(*id)?.resources.insert(name.clone(), *resource_id);
+                if *resource_id == 0 {
+                    return Err(TreeError::InvalidResourceId);
+                }
+                self.element_mut(*id)?
+                    .resources
+                    .insert(name.clone(), *resource_id);
                 Ok(())
             }
             HostOperation::DetachResource { id, name } => {
                 validate_name(name, "resource name", 256)?;
                 let node = self.element_mut(*id)?;
-                if node.resources.remove(name).is_none() { return Err(TreeError::MissingResource(name.clone())); }
+                if node.resources.remove(name).is_none() {
+                    return Err(TreeError::MissingResource(name.clone()));
+                }
                 Ok(())
             }
         }
     }
 
-    fn insert_reserved_node(&mut self, id: NodeId, kind: NodeKind, text: Option<String>) -> Result<(), TreeError> {
-        if id.get() == 0 || id.get() != self.next_node_id { return Err(TreeError::InvalidNodeId); }
-        let next = self.next_node_id.checked_add(1).ok_or(TreeError::NodeIdExhausted)?;
-        if self.nodes.contains_key(&id) { return Err(TreeError::InvalidNodeId); }
-        self.nodes.insert(id, Node {
+    fn insert_reserved_node(
+        &mut self,
+        id: NodeId,
+        kind: NodeKind,
+        text: Option<String>,
+    ) -> Result<(), TreeError> {
+        if id.get() == 0 || id.get() != self.next_node_id {
+            return Err(TreeError::InvalidNodeId);
+        }
+        let next = self
+            .next_node_id
+            .checked_add(1)
+            .ok_or(TreeError::NodeIdExhausted)?;
+        if self.nodes.contains_key(&id) {
+            return Err(TreeError::InvalidNodeId);
+        }
+        self.nodes.insert(
             id,
-            kind,
-            text,
-            parent: None,
-            children: Vec::new(),
-            properties: BTreeMap::new(),
-            events: BTreeMap::new(),
-            resources: BTreeMap::new(),
-        });
+            Node {
+                id,
+                kind,
+                text,
+                parent: None,
+                children: Vec::new(),
+                properties: BTreeMap::new(),
+                events: BTreeMap::new(),
+                resources: BTreeMap::new(),
+            },
+        );
         self.roots.push(id);
         self.next_node_id = next;
         Ok(())
@@ -392,7 +523,9 @@ impl UiTree {
 
     fn element_mut(&mut self, id: NodeId) -> Result<&mut Node, TreeError> {
         let node = self.nodes.get_mut(&id).ok_or(TreeError::MissingNode(id))?;
-        if matches!(&node.kind, NodeKind::Text) { return Err(TreeError::InvalidNodeKind); }
+        if matches!(&node.kind, NodeKind::Text) {
+            return Err(TreeError::InvalidNodeKind);
+        }
         Ok(node)
     }
 
@@ -405,20 +538,28 @@ impl UiTree {
         } else {
             self.roots.retain(|id| *id != child);
         }
-        if let Some(node) = self.nodes.get_mut(&child) { node.parent = None; }
+        if let Some(node) = self.nodes.get_mut(&child) {
+            node.parent = None;
+        }
     }
 
     fn is_descendant(&self, candidate: NodeId, ancestor: NodeId) -> bool {
         let mut current = self.nodes.get(&candidate).and_then(|node| node.parent);
         while let Some(id) = current {
-            if id == ancestor { return true; }
+            if id == ancestor {
+                return true;
+            }
             current = self.nodes.get(&id).and_then(|node| node.parent);
         }
         false
     }
 }
 
-fn validate_name(value: &str, description: &'static str, max_bytes: usize) -> Result<(), TreeError> {
+fn validate_name(
+    value: &str,
+    description: &'static str,
+    max_bytes: usize,
+) -> Result<(), TreeError> {
     if value.is_empty() || value.len() > max_bytes || value.contains('\0') {
         return Err(TreeError::InvalidName(description));
     }
@@ -429,7 +570,9 @@ fn validate_name(value: &str, description: &'static str, max_bytes: usize) -> Re
 mod tests {
     use super::*;
 
-    fn node_id(value: u64) -> NodeId { NodeId::new(value) }
+    fn node_id(value: u64) -> NodeId {
+        NodeId::new(value)
+    }
 
     #[test]
     fn inserts_and_moves_nodes_without_duplicate_roots() {
@@ -466,7 +609,10 @@ mod tests {
         tree.insert_before(left, child, None).unwrap();
         let before_left = tree.node(left).unwrap().children.clone();
         let before_right = tree.node(right).unwrap().children.clone();
-        assert_eq!(tree.insert_before(right, child, Some(child)), Err(TreeError::InvalidAnchor));
+        assert_eq!(
+            tree.insert_before(right, child, Some(child)),
+            Err(TreeError::InvalidAnchor)
+        );
         assert_eq!(tree.node(left).unwrap().children, before_left);
         assert_eq!(tree.node(right).unwrap().children, before_right);
         assert_eq!(tree.node(child).unwrap().parent, Some(left));
@@ -512,8 +658,19 @@ mod tests {
         let child = tree.create_element("child").unwrap();
         tree.insert_before(root, child, None).unwrap();
         let bind = HostBatch {
-            header: BatchHeader { major: 1, minor: 0, surface_id: 1, session_generation: 1, transaction_id: 1, expected_revision: 0 },
-            operations: vec![HostOperation::BindEvent { id: child, event: "click".into(), handler_id: HandlerId::new(7) }],
+            header: BatchHeader {
+                major: 1,
+                minor: 0,
+                surface_id: 1,
+                session_generation: 1,
+                transaction_id: 1,
+                expected_revision: 0,
+            },
+            operations: vec![HostOperation::BindEvent {
+                id: child,
+                event: "click".into(),
+                handler_id: HandlerId::new(7),
+            }],
         };
         tree.apply_batch(&bind).unwrap();
         let removed = tree.remove(root).unwrap();
@@ -528,21 +685,43 @@ mod tests {
         let mut tree = UiTree::default();
         let element = tree.create_element("view").unwrap();
         let text = tree.create_text("before").unwrap();
-        tree.set_property(element, "disabled", PropertyValue::Boolean(true)).unwrap();
-        tree.set_property(element, "opacity", PropertyValue::Number(0.5)).unwrap();
+        tree.set_property(element, "disabled", PropertyValue::Boolean(true))
+            .unwrap();
+        tree.set_property(element, "opacity", PropertyValue::Number(0.5))
+            .unwrap();
         tree.insert_before(element, text, None).unwrap();
         assert_eq!(tree.text_content(text).unwrap(), "before");
-        assert_eq!(tree.node(element).unwrap().properties.get("disabled"), Some(&PropertyValue::Boolean(true)));
+        assert_eq!(
+            tree.node(element).unwrap().properties.get("disabled"),
+            Some(&PropertyValue::Boolean(true))
+        );
     }
 
     #[test]
     fn invalid_batch_rolls_back_tree_and_revision() {
         let mut tree = UiTree::default();
-        let header = BatchHeader { major: 1, minor: 0, surface_id: 1, session_generation: 1, transaction_id: 1, expected_revision: 0 };
-        let batch = HostBatch { header, operations: vec![
-            HostOperation::CreateElement { id: node_id(1), tag: "root".into() },
-            HostOperation::InsertNode { parent: node_id(999), child: node_id(1), anchor: None },
-        ]};
+        let header = BatchHeader {
+            major: 1,
+            minor: 0,
+            surface_id: 1,
+            session_generation: 1,
+            transaction_id: 1,
+            expected_revision: 0,
+        };
+        let batch = HostBatch {
+            header,
+            operations: vec![
+                HostOperation::CreateElement {
+                    id: node_id(1),
+                    tag: "root".into(),
+                },
+                HostOperation::InsertNode {
+                    parent: node_id(999),
+                    child: node_id(1),
+                    anchor: None,
+                },
+            ],
+        };
         assert!(tree.apply_batch(&batch).is_err());
         assert_eq!(tree.revision(), 0);
         assert_eq!(tree.node_count(), 0);
@@ -553,11 +732,28 @@ mod tests {
     fn valid_batch_commits_once_and_preserves_text() {
         let mut tree = UiTree::default();
         let batch = HostBatch {
-            header: BatchHeader { major: 1, minor: 0, surface_id: 1, session_generation: 1, transaction_id: 1, expected_revision: 0 },
+            header: BatchHeader {
+                major: 1,
+                minor: 0,
+                surface_id: 1,
+                session_generation: 1,
+                transaction_id: 1,
+                expected_revision: 0,
+            },
             operations: vec![
-                HostOperation::CreateElement { id: node_id(1), tag: "root".into() },
-                HostOperation::CreateText { id: node_id(2), text: "hello".into() },
-                HostOperation::InsertNode { parent: node_id(1), child: node_id(2), anchor: None },
+                HostOperation::CreateElement {
+                    id: node_id(1),
+                    tag: "root".into(),
+                },
+                HostOperation::CreateText {
+                    id: node_id(2),
+                    text: "hello".into(),
+                },
+                HostOperation::InsertNode {
+                    parent: node_id(1),
+                    child: node_id(2),
+                    anchor: None,
+                },
             ],
         };
         let ack = tree.apply_batch(&batch).unwrap();
@@ -570,10 +766,23 @@ mod tests {
     fn stale_revision_is_rejected_without_mutation() {
         let mut tree = UiTree::default();
         let batch = HostBatch {
-            header: BatchHeader { major: 1, minor: 0, surface_id: 1, session_generation: 1, transaction_id: 1, expected_revision: 1 },
-            operations: vec![HostOperation::CreateElement { id: node_id(1), tag: "root".into() }],
+            header: BatchHeader {
+                major: 1,
+                minor: 0,
+                surface_id: 1,
+                session_generation: 1,
+                transaction_id: 1,
+                expected_revision: 1,
+            },
+            operations: vec![HostOperation::CreateElement {
+                id: node_id(1),
+                tag: "root".into(),
+            }],
         };
-        assert!(matches!(tree.apply_batch(&batch), Err(TreeError::RevisionConflict { .. })));
+        assert!(matches!(
+            tree.apply_batch(&batch),
+            Err(TreeError::RevisionConflict { .. })
+        ));
         assert_eq!(tree.revision(), 0);
         assert_eq!(tree.node_count(), 0);
     }
@@ -582,8 +791,18 @@ mod tests {
     fn rejects_wrong_surface_and_session() {
         let mut tree = UiTree::new(SurfaceId::new(7), SessionGeneration::new(9));
         let mut batch = HostBatch {
-            header: BatchHeader { major: 1, minor: 0, surface_id: 8, session_generation: 9, transaction_id: 1, expected_revision: 0 },
-            operations: vec![HostOperation::CreateElement { id: node_id(1), tag: "root".into() }],
+            header: BatchHeader {
+                major: 1,
+                minor: 0,
+                surface_id: 8,
+                session_generation: 9,
+                transaction_id: 1,
+                expected_revision: 0,
+            },
+            operations: vec![HostOperation::CreateElement {
+                id: node_id(1),
+                tag: "root".into(),
+            }],
         };
         assert_eq!(tree.apply_batch(&batch), Err(TreeError::ForeignSurface));
         batch.header.surface_id = 7;

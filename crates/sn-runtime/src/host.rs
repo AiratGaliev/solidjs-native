@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray};
 
 use sn_core::{
-    CommitAck, HandlerId, HostBatch, HostOperation, NodeId, ProtocolError,
-    SessionGeneration, SurfaceId, TreeError, UiTree, decode_batch, MAX_BATCH_BYTES,
+    CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId, ProtocolError,
+    SessionGeneration, SurfaceId, TreeError, UiTree, decode_batch,
 };
 
 pub type SharedHostState = Rc<RefCell<HostState>>;
@@ -51,14 +51,24 @@ impl HostState {
         &self.sink
     }
 
-    fn register_callback<'js>(&mut self, ctx: &Ctx<'js>, callback: Function<'js>) -> rquickjs::Result<u32> {
+    fn register_callback<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        callback: Function<'js>,
+    ) -> rquickjs::Result<u32> {
         if self.disposed {
-            return Err(Exception::throw_internal(ctx, "Surface session has been disposed"));
+            return Err(Exception::throw_internal(
+                ctx,
+                "Surface session has been disposed",
+            ));
         }
         let id = self.next_handler_id;
-        self.next_handler_id = self.next_handler_id.checked_add(1)
+        self.next_handler_id = self
+            .next_handler_id
+            .checked_add(1)
             .ok_or_else(|| Exception::throw_range(ctx, "Callback handler id space exhausted"))?;
-        self.callbacks.insert(HandlerId::new(id), Persistent::save(ctx, callback));
+        self.callbacks
+            .insert(HandlerId::new(id), Persistent::save(ctx, callback));
         Ok(id)
     }
 
@@ -84,7 +94,9 @@ impl HostState {
             if let HostOperation::BindEvent { handler_id, .. } = operation {
                 if !self.callbacks.contains_key(handler_id) {
                     self.prune_callbacks();
-                    return Err(HostApplyError::Tree(TreeError::MissingHandler(handler_id.get())));
+                    return Err(HostApplyError::Tree(TreeError::MissingHandler(
+                        handler_id.get(),
+                    )));
                 }
             }
         }
@@ -102,13 +114,25 @@ impl HostState {
         }
     }
 
-    fn callback_for_event(&self, node_id: NodeId, event_name: &str) -> Option<Persistent<Function<'static>>> {
-        let handler_id = self.tree.node(node_id).ok()?.events.get(event_name).copied()?;
+    fn callback_for_event(
+        &self,
+        node_id: NodeId,
+        event_name: &str,
+    ) -> Option<Persistent<Function<'static>>> {
+        let handler_id = self
+            .tree
+            .node(node_id)
+            .ok()?
+            .events
+            .get(event_name)
+            .copied()?;
         self.callbacks.get(&handler_id).cloned()
     }
 
     pub fn dispose(&mut self) {
-        if self.disposed { return; }
+        if self.disposed {
+            return;
+        }
         self.tree.clear();
         self.callbacks.clear();
         self.disposed = true;
@@ -141,41 +165,50 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
     let register_callback = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, callback: Function<'js>| -> rquickjs::Result<u32> {
-            let mut host = state.try_borrow_mut()
+            let mut host = state
+                .try_borrow_mut()
                 .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
             host.register_callback(&ctx, callback)
         }
     })?;
-    ctx.globals().set("__sn_register_callback", register_callback)?;
+    ctx.globals()
+        .set("__sn_register_callback", register_callback)?;
 
     let discard_pending_callbacks = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>| -> rquickjs::Result<()> {
-            let mut host = state.try_borrow_mut()
+            let mut host = state
+                .try_borrow_mut()
                 .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
             host.prune_callbacks();
             Ok(())
         }
     })?;
-    ctx.globals().set("__sn_discard_pending_callbacks", discard_pending_callbacks)?;
+    ctx.globals()
+        .set("__sn_discard_pending_callbacks", discard_pending_callbacks)?;
 
     let apply_batch = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, bytes: TypedArray<'js, u8>| -> rquickjs::Result<Object<'js>> {
             if bytes.len() > MAX_BATCH_BYTES {
-                let mut host = state.try_borrow_mut()
-                    .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
+                let mut host = state.try_borrow_mut().map_err(|_| {
+                    Exception::throw_internal(&ctx, "Host state is already borrowed")
+                })?;
                 host.prune_callbacks();
-                return Err(Exception::throw_range(&ctx, "Host batch exceeds the byte limit"));
+                return Err(Exception::throw_range(
+                    &ctx,
+                    "Host batch exceeds the byte limit",
+                ));
             }
             // QuickJS execution is single-threaded for this context. Copy the
             // typed array synchronously; no JS backing-store reference escapes.
             let owned = unsafe { bytes.as_slice() }.to_vec();
-            let mut host = state.try_borrow_mut()
+            let mut host = state
+                .try_borrow_mut()
                 .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
-            let ack = host.apply_encoded(&owned).map_err(|error| {
-                Exception::throw_type(&ctx, &error.to_string())
-            })?;
+            let ack = host
+                .apply_encoded(&owned)
+                .map_err(|error| Exception::throw_type(&ctx, &error.to_string()))?;
 
             let result = Object::new(ctx.clone())?;
             result.set("ok", true)?;
@@ -198,7 +231,8 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
     ctx.globals().set("__sn_dispatch_event", dispatch_event)?;
 
     let dispose = Function::new(ctx.clone(), move || -> rquickjs::Result<()> {
-        let mut host = state.try_borrow_mut()
+        let mut host = state
+            .try_borrow_mut()
             .map_err(|_| rquickjs::Error::Unknown)?;
         host.dispose();
         Ok(())
@@ -222,11 +256,14 @@ pub fn dispatch_event<'js>(
     // Clone the persistent root and release the RefCell borrow before entering
     // JavaScript. Event handlers may synchronously cause new renderer bindings.
     let persistent = {
-        let host = state.try_borrow()
+        let host = state
+            .try_borrow()
             .map_err(|_| Exception::throw_internal(ctx, "Host state is already borrowed"))?;
         host.callback_for_event(node_id, event_name)
     };
-    let Some(persistent) = persistent else { return Ok(false); };
+    let Some(persistent) = persistent else {
+        return Ok(false);
+    };
     let callback = persistent.restore(ctx)?;
     let event = Object::new(ctx.clone())?;
     event.set("type", event_name)?;
@@ -251,11 +288,7 @@ pub fn dispatch_event_and_flush<'js>(
 
 // Kept here as an explicit helper for tests and transaction construction.
 #[cfg(test)]
-fn event_batch(
-    tree: &UiTree,
-    transaction_id: u64,
-    operations: Vec<HostOperation>,
-) -> HostBatch {
+fn event_batch(tree: &UiTree, transaction_id: u64, operations: Vec<HostOperation>) -> HostBatch {
     HostBatch {
         header: BatchHeader {
             major: 1,
@@ -272,14 +305,17 @@ fn event_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sn_core::BatchHeader;
     use rquickjs::{Context, Runtime};
+    use sn_core::BatchHeader;
 
     #[test]
     fn callback_registry_dispatches_and_returns_to_baseline_after_remove() {
         let runtime = Runtime::new().unwrap();
         let context = Context::full(&runtime).unwrap();
-        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(SurfaceId::new(1), SessionGeneration::new(1))));
+        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(
+            SurfaceId::new(1),
+            SessionGeneration::new(1),
+        )));
 
         context.with(|ctx| -> rquickjs::Result<()> {
             install_host_bindings(ctx.clone(), state.clone())?;
@@ -319,41 +355,62 @@ mod tests {
     fn encoding_failure_can_release_uncommitted_callback_roots() {
         let runtime = Runtime::new().unwrap();
         let context = Context::full(&runtime).unwrap();
-        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(SurfaceId::new(1), SessionGeneration::new(1))));
+        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(
+            SurfaceId::new(1),
+            SessionGeneration::new(1),
+        )));
 
-        context.with(|ctx| -> rquickjs::Result<()> {
-            install_host_bindings(ctx.clone(), state.clone())?;
-            let _: u32 = ctx.eval("globalThis.__sn_register_callback(() => {})")?;
-            assert_eq!(state.borrow().callback_count(), 1);
+        context
+            .with(|ctx| -> rquickjs::Result<()> {
+                install_host_bindings(ctx.clone(), state.clone())?;
+                let _: u32 = ctx.eval("globalThis.__sn_register_callback(() => {})")?;
+                assert_eq!(state.borrow().callback_count(), 1);
 
-            let discard: Function = ctx.globals().get("__sn_discard_pending_callbacks")?;
-            discard.call::<_, ()>(())?;
-            assert_eq!(state.borrow().callback_count(), 0);
-            assert_eq!(state.borrow().tree.revision(), 0);
-            Ok(())
-        }).unwrap();
+                let discard: Function = ctx.globals().get("__sn_discard_pending_callbacks")?;
+                discard.call::<_, ()>(())?;
+                assert_eq!(state.borrow().callback_count(), 0);
+                assert_eq!(state.borrow().tree.revision(), 0);
+                Ok(())
+            })
+            .unwrap();
     }
 
     #[test]
     fn failed_batch_discards_pending_callback_roots_and_preserves_tree() {
         let runtime = Runtime::new().unwrap();
         let context = Context::full(&runtime).unwrap();
-        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(SurfaceId::new(1), SessionGeneration::new(1))));
+        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(
+            SurfaceId::new(1),
+            SessionGeneration::new(1),
+        )));
 
-        context.with(|ctx| -> rquickjs::Result<()> {
-            install_host_bindings(ctx.clone(), state.clone())?;
-            let handler_id: u32 = ctx.eval("globalThis.__sn_register_callback(() => {})")?;
-            let mut host = state.borrow_mut();
-            let root = NodeId::new(1);
-            let batch = event_batch(&host.tree, 1, vec![
-                HostOperation::CreateElement { id: root, tag: "root".into() },
-                HostOperation::BindEvent { id: NodeId::new(99), event: "click".into(), handler_id: HandlerId::new(handler_id) },
-            ]);
-            assert!(host.commit_batch(&batch).is_err());
-            assert_eq!(host.tree.node_count(), 0);
-            assert_eq!(host.tree.revision(), 0);
-            assert_eq!(host.callback_count(), 0);
-            Ok(())
-        }).unwrap();
+        context
+            .with(|ctx| -> rquickjs::Result<()> {
+                install_host_bindings(ctx.clone(), state.clone())?;
+                let handler_id: u32 = ctx.eval("globalThis.__sn_register_callback(() => {})")?;
+                let mut host = state.borrow_mut();
+                let root = NodeId::new(1);
+                let batch = event_batch(
+                    &host.tree,
+                    1,
+                    vec![
+                        HostOperation::CreateElement {
+                            id: root,
+                            tag: "root".into(),
+                        },
+                        HostOperation::BindEvent {
+                            id: NodeId::new(99),
+                            event: "click".into(),
+                            handler_id: HandlerId::new(handler_id),
+                        },
+                    ],
+                );
+                assert!(host.commit_batch(&batch).is_err());
+                assert_eq!(host.tree.node_count(), 0);
+                assert_eq!(host.tree.revision(), 0);
+                assert_eq!(host.callback_count(), 0);
+                Ok(())
+            })
+            .unwrap();
     }
 }
