@@ -17,6 +17,8 @@
 | `pnpm check` | <!-- passed / failed / not run --> |
 | `pnpm smoke` (when runtime integration is affected) | <!-- passed / failed / not run --> |
 | Platform-specific checks | <!-- target OS/device and result, or not run --> |
+| Security-sensitive checks | <!-- boundary/permission/failure tests, or not applicable --> |
+| Performance benchmarks | <!-- workload, baseline/candidate SHA and result, or not applicable --> |
 
 **Unrun checks and limitations:**
 
@@ -29,4 +31,6 @@
 - [ ] Tests cover the changed behavior, including relevant failure/edge cases.
 - [ ] Documentation, ADRs, examples and compatibility notes are updated where required.
 - [ ] No unrelated changes, generated build output, secrets or local artifacts are included.
-- [ ] CI results and any remaining risks are recorded.
+- [ ] Material architecture/API/dependency changes follow the ADR and dependency policies.
+- [ ] Security, lifecycle, threading and resource-ownership implications are reviewed where affected.
+- [ ] CI results, unrun checks and remaining risks are recorded without overstating acceptance.
