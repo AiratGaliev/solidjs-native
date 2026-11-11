@@ -174,6 +174,16 @@ impl std::fmt::Display for HostApplyError {
 }
 
 pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rquickjs::Result<()> {
+    let (surface_id, session_generation) = {
+        let host = state
+            .try_borrow()
+            .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
+        (
+            host.tree.surface_id().get(),
+            host.tree.session_generation().get(),
+        )
+    };
+
     let register_callback = Function::new(ctx.clone(), {
         let state = state.clone();
         move |ctx: Ctx<'js>, callback: Function<'js>| -> rquickjs::Result<u32> {
@@ -252,8 +262,8 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
     ctx.globals().set("__sn_dispose", dispose)?;
 
     let config = Object::new(ctx.clone())?;
-    config.set("surfaceId", 1u32)?;
-    config.set("sessionGeneration", 1u32)?;
+    config.set("surfaceId", surface_id)?;
+    config.set("sessionGeneration", session_generation)?;
     ctx.globals().set("__sn_host_config", config)?;
 
     Ok(())
@@ -318,6 +328,29 @@ fn event_batch(tree: &UiTree, transaction_id: u64, operations: Vec<HostOperation
 mod tests {
     use super::*;
     use rquickjs::{Context, Runtime};
+
+    #[test]
+    fn host_encoder_config_uses_the_actual_surface_session_identity() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+        let state: SharedHostState = Rc::new(RefCell::new(HostState::new(
+            SurfaceId::new(17),
+            SessionGeneration::new(23),
+        )));
+
+        context
+            .with(|ctx| -> rquickjs::Result<()> {
+                install_host_bindings(ctx.clone(), state.clone())?;
+                let config: Object = ctx.globals().get("__sn_host_config")?;
+                let surface_id: u64 = config.get("surfaceId")?;
+                let session_generation: u64 = config.get("sessionGeneration")?;
+
+                assert_eq!(surface_id, 17);
+                assert_eq!(session_generation, 23);
+                Ok(())
+            })
+            .unwrap();
+    }
 
     #[test]
     fn callback_registry_dispatches_and_returns_to_baseline_after_remove() {
