@@ -45,20 +45,35 @@ impl ManualClock {
     /// Advances the clock to at least `value`; time never moves backwards.
     pub fn set(&self, value: Duration) {
         let target = duration_to_nanos(value);
-        let _ = self
-            .nanos
-            .try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
-                Some(current.max(target))
-            });
+        let mut current = self.nanos.load(Ordering::SeqCst);
+        while current < target {
+            match self.nanos.compare_exchange_weak(
+                current,
+                target,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => break,
+                Err(actual) => current = actual,
+            }
+        }
     }
 
     pub fn advance(&self, delta: Duration) {
         let increment = duration_to_nanos(delta);
-        let _ = self
-            .nanos
-            .try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
-                Some(current.saturating_add(increment))
-            });
+        let mut current = self.nanos.load(Ordering::SeqCst);
+        loop {
+            let next = current.saturating_add(increment);
+            match self.nanos.compare_exchange_weak(
+                current,
+                next,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => break,
+                Err(actual) => current = actual,
+            }
+        }
     }
 }
 

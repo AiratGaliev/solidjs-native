@@ -226,10 +226,7 @@ impl SchedulerState {
     }
 
     fn discard_stale_deadlines(&mut self) {
-        loop {
-            let Some(Reverse((deadline, id))) = self.deadlines.peek().copied() else {
-                break;
-            };
+        while let Some(Reverse((deadline, id))) = self.deadlines.peek().copied() {
             let is_current = self
                 .timers
                 .get(&id)
@@ -570,7 +567,7 @@ mod tests {
 
             manual.advance(Duration::from_millis(20));
             let (_, callback) = state.borrow_mut().take_due_timer(manual.now()).unwrap();
-            callback.restore(ctx).unwrap().call::<_, ()>(()).unwrap();
+            callback.restore(&ctx).unwrap().call::<_, ()>(()).unwrap();
             assert!(state.borrow_mut().take_due_timer(manual.now()).is_none());
 
             manual.advance(Duration::from_millis(2));

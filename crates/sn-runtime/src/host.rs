@@ -352,20 +352,6 @@ pub fn dispatch_event<'js>(
     Ok(true)
 }
 
-pub fn dispatch_event_and_flush<'js>(
-    ctx: &Ctx<'js>,
-    state: &SharedHostState,
-    node_id: NodeId,
-    event_name: &str,
-) -> rquickjs::Result<bool> {
-    let dispatched = dispatch_event(ctx, state, node_id, event_name)?;
-    if dispatched {
-        let flush: Function = ctx.globals().get("__sn_flush_host_batch")?;
-        let _: Value<'js> = flush.call(())?;
-    }
-    Ok(dispatched)
-}
-
 // Kept here as an explicit helper for tests and transaction construction.
 #[cfg(test)]
 fn event_batch(tree: &UiTree, transaction_id: u64, operations: Vec<HostOperation>) -> HostBatch {

@@ -279,11 +279,21 @@ pub struct EngineSessionHandle {
 
 impl EngineSessionHandle {
     fn allocate_task_id(&self) -> Result<u64, SessionError> {
-        self.next_task_id
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
-                current.checked_add(1)
-            })
-            .map_err(|_| SessionError::Runtime("EngineSession task id space exhausted".into()))
+        let mut current = self.next_task_id.load(Ordering::Relaxed);
+        loop {
+            let next = current.checked_add(1).ok_or_else(|| {
+                SessionError::Runtime("EngineSession task id space exhausted".into())
+            })?;
+            match self.next_task_id.compare_exchange_weak(
+                current,
+                next,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => return Ok(current),
+                Err(actual) => current = actual,
+            }
+        }
     }
 
     fn enqueue<T>(
@@ -302,24 +312,40 @@ impl EngineSessionHandle {
             });
         }
 
-        let reserved =
-            self.pending_commands
-                .try_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
-                    (pending < self.queue_capacity).then_some(pending + 1)
-                });
-        if reserved.is_err() {
-            return Err(SessionError::QueueFull);
+        let mut pending_commands = self.pending_commands.load(Ordering::Acquire);
+        loop {
+            if pending_commands >= self.queue_capacity {
+                return Err(SessionError::QueueFull);
+            }
+            match self.pending_commands.compare_exchange_weak(
+                pending_commands,
+                pending_commands + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(actual) => pending_commands = actual,
+            }
         }
-        let byte_reservation =
-            self.pending_queue_bytes
-                .try_update(Ordering::AcqRel, Ordering::Acquire, |pending| {
-                    pending
-                        .checked_add(payload_bytes)
-                        .filter(|total| *total <= self.max_queued_bytes)
-                });
-        if byte_reservation.is_err() {
-            self.pending_commands.fetch_sub(1, Ordering::AcqRel);
-            return Err(SessionError::QueueFull);
+
+        let mut pending_bytes = self.pending_queue_bytes.load(Ordering::Acquire);
+        loop {
+            let Some(total_bytes) = pending_bytes
+                .checked_add(payload_bytes)
+                .filter(|total| *total <= self.max_queued_bytes)
+            else {
+                self.pending_commands.fetch_sub(1, Ordering::AcqRel);
+                return Err(SessionError::QueueFull);
+            };
+            match self.pending_queue_bytes.compare_exchange_weak(
+                pending_bytes,
+                total_bytes,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(actual) => pending_bytes = actual,
+            }
         }
 
         let task_id = match self.allocate_task_id() {
