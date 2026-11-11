@@ -6,7 +6,7 @@ function App() {
   return (
     <View>
       <Text>SolidJS Native renderer smoke test</Text>
-      <Text>Count: {count()}</Text>
+      <Text>{`Count: ${count()}`}</Text>
       <Button onClick={() => setCount((value) => value + 1)}>Increment</Button>
     </View>
   );
