@@ -127,7 +127,7 @@ test("aborts the Surface and releases uncommitted callback roots after encode fa
 });
 
 
-test("aborts the session when the native batch binding rejects a transaction", () => {
+test("poisons the JS adapter but preserves the committed Surface when a batch is rejected", () => {
   const previousDiscard = globalThis.__sn_discard_pending_callbacks;
   const previousDispose = globalThis.__sn_dispose;
   const previousApply = globalThis.__sn_apply_batch;
