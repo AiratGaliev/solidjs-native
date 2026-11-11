@@ -330,7 +330,7 @@ pub fn install_host_bindings<'js>(ctx: Ctx<'js>, state: SharedHostState) -> rqui
     Ok(())
 }
 
-pub #[cfg(test)]
+#[cfg(test)]
 pub fn dispatch_event_and_flush<'js>(
     ctx: &Ctx<'js>,
     state: &SharedHostState,
