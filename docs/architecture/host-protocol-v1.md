@@ -107,7 +107,7 @@ The native QuickJS binding:
 
 No ArrayBuffer/TypedArray backing pointer is retained after the binding returns. JS callbacks are rooted with `Persistent<Function>` in the QuickJS runtime. Failed transactions discard uncommitted callback roots while preserving callbacks referenced by the last committed tree. RemoveNode releases all handlers in the removed subtree after commit; disposing the Surface releases all callback roots.
 
-The JS adapter becomes poisoned after a rejected batch. It does not continue with a potentially divergent mirror; the caller must dispose and remount the Surface.
+The JS adapter becomes poisoned after a rejected batch. Because the Rust transaction is atomic, the committed tree, revision and active callback bindings remain unchanged; only uncommitted operations and callback roots are discarded. The adapter does not continue with a potentially divergent JS mirror, and its owner must dispose and remount the Surface before further use. If the native binding returns an invalid, missing or mismatched acknowledgement, the adapter aborts the whole Surface session because the committed revision can no longer be trusted.
 
 ## 6. Validation coverage
 
