@@ -354,13 +354,13 @@ export class HostBatchEncoder {
     this.assertWritable();
     if (this.operations.length === 0) return undefined;
     const apply = globalThis.__sn_apply_batch;
-    if (!apply) this.abortAfterFailure(new Error("Native host batch binding is not installed"));
+    if (!apply) this.poisonAfterFailure(new Error("Native host batch binding is not installed"));
 
     let bytes: Uint8Array;
     try {
       bytes = this.encode();
     } catch (error) {
-      this.abortAfterFailure(error);
+      this.poisonAfterFailure(error);
     }
 
     let ack: HostBatchAck;
@@ -393,11 +393,20 @@ export class HostBatchEncoder {
     return ack;
   }
 
-  abort(): void {
-    if (this.disposed) return;
+  poison(): void {
+    if (this.disposed || this.poisoned) return;
     this.operations = [];
     try {
       globalThis.__sn_discard_pending_callbacks?.();
+    } finally {
+      this.poisoned = true;
+    }
+  }
+
+  abort(): void {
+    if (this.disposed) return;
+    try {
+      this.poison();
     } finally {
       try {
         globalThis.__sn_dispose?.();
@@ -417,6 +426,24 @@ export class HostBatchEncoder {
       this.disposed = true;
       this.poisoned = true;
     }
+  }
+
+  private poisonAfterFailure(error: unknown): never {
+    try {
+      this.poison();
+    } catch (cleanupError) {
+      try {
+        this.abort();
+      } catch (abortError) {
+        throw new Error(
+          `Host batch failed (${String(error)}); callback cleanup failed (${String(cleanupError)}); Surface abort failed (${String(abortError)})`,
+        );
+      }
+      throw new Error(
+        `Host batch failed (${String(error)}); callback cleanup failed (${String(cleanupError)}); Surface session was aborted`,
+      );
+    }
+    throw error;
   }
 
   private abortAfterFailure(error: unknown): never {
