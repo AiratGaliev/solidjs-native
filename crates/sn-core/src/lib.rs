@@ -192,13 +192,13 @@ impl UiTree {
         self.nodes.len()
     }
 
-    pub fn create_element(&mut self, tag: impl Into<String>) -> Result<NodeId, TreeError> {
+    fn create_element(&mut self, tag: impl Into<String>) -> Result<NodeId, TreeError> {
         let tag = tag.into();
         validate_name(&tag, "element tag", 256)?;
         self.allocate_node(NodeKind::Element(tag), None)
     }
 
-    pub fn create_text(&mut self, value: impl Into<String>) -> Result<NodeId, TreeError> {
+    fn create_text(&mut self, value: impl Into<String>) -> Result<NodeId, TreeError> {
         self.allocate_node(NodeKind::Text, Some(value.into()))
     }
 
@@ -273,7 +273,7 @@ impl UiTree {
             .collect()
     }
 
-    pub fn set_property(
+    fn set_property(
         &mut self,
         id: NodeId,
         name: impl Into<String>,
@@ -290,7 +290,7 @@ impl UiTree {
         Ok(())
     }
 
-    pub fn insert_before(
+    fn insert_before(
         &mut self,
         parent: NodeId,
         child: NodeId,
@@ -341,7 +341,7 @@ impl UiTree {
         Ok(())
     }
 
-    pub fn remove(&mut self, id: NodeId) -> Result<Vec<NodeId>, TreeError> {
+    fn remove(&mut self, id: NodeId) -> Result<Vec<NodeId>, TreeError> {
         if !self.nodes.contains_key(&id) {
             return Err(TreeError::MissingNode(id));
         }
@@ -419,7 +419,11 @@ impl UiTree {
         Ok(ack)
     }
 
-    pub fn clear(&mut self) {
+    /// Clears retained nodes when the owning Surface session is disposed.
+    ///
+    /// Normal tree mutations must go through apply_batch so revisions and
+    /// transaction ordering cannot be bypassed.
+    pub fn dispose_session(&mut self) {
         self.nodes.clear();
         self.roots.clear();
     }

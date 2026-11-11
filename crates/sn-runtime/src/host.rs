@@ -145,7 +145,7 @@ impl HostState {
         if self.disposed {
             return;
         }
-        self.tree.clear();
+        self.tree.dispose_session();
         self.callbacks.clear();
         self.disposed = true;
     }
