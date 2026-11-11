@@ -345,7 +345,7 @@ pub fn dispatch_event_and_flush<'js>(
     Ok(dispatched)
 }
 
-fn dispatch_event<'js>(
+pub(crate) fn dispatch_event<'js>(
     ctx: &Ctx<'js>,
     state: &SharedHostState,
     node_id: NodeId,
