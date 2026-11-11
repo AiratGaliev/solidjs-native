@@ -309,6 +309,13 @@ export class HostBatchEncoder {
     if (this.operations.length === 0) throw new Error("Cannot encode an empty host batch");
     if (this.operations.length > MAX_OPERATIONS) throw new RangeError("Host batch contains too many operations");
 
+    if (!Number.isSafeInteger(this.transactionId) || this.transactionId <= 0) {
+      throw new RangeError("TransactionId exceeds JavaScript's safe integer range");
+    }
+    if (!Number.isSafeInteger(this.revision) || this.revision < 0) {
+      throw new RangeError("UiTree revision exceeds JavaScript's safe integer range");
+    }
+
     const strings = new StringArena();
     const records = this.operations.map(operation => encodeOperation(operation, strings));
     const recordsLength = records.reduce((total, record) => total + record.length, 0);
@@ -353,26 +360,30 @@ export class HostBatchEncoder {
     try {
       bytes = this.encode();
     } catch (error) {
-      globalThis.__sn_discard_pending_callbacks?.();
-      this.operations = [];
-      this.poisoned = true;
-      throw error;
+      this.abortAfterFailure(error);
     }
 
     let ack: HostBatchAck;
     try {
       ack = apply(bytes);
+      if (
+        !ack ||
+        !ack.ok ||
+        !Number.isSafeInteger(ack.surfaceId) ||
+        !Number.isSafeInteger(ack.sessionGeneration) ||
+        !Number.isSafeInteger(ack.transactionId) ||
+        !Number.isSafeInteger(ack.revision) ||
+        !Number.isSafeInteger(ack.nextNodeId) ||
+        ack.surfaceId !== this.surfaceId ||
+        ack.sessionGeneration !== this.sessionGeneration ||
+        ack.transactionId !== this.transactionId ||
+        ack.revision !== this.revision + 1 ||
+        ack.nextNodeId <= 0
+      ) {
+        throw new Error(ack?.error ?? "Native host rejected or mis-acknowledged a batch");
+      }
     } catch (error) {
-      this.poisoned = true;
-      this.operations = [];
-      throw error;
-    }
-
-    if (!ack.ok || ack.surfaceId !== this.surfaceId || ack.sessionGeneration !== this.sessionGeneration ||
-        ack.transactionId !== this.transactionId || ack.revision !== this.revision + 1) {
-      this.poisoned = true;
-      this.operations = [];
-      throw new Error(ack.error ?? "Native host rejected or mis-acknowledged a batch");
+      this.abortAfterFailure(error);
     }
 
     this.revision = ack.revision;
@@ -399,10 +410,24 @@ export class HostBatchEncoder {
 
   dispose(): void {
     if (this.disposed) return;
-    globalThis.__sn_dispose?.();
-    this.operations = [];
-    this.disposed = true;
-    this.poisoned = true;
+    try {
+      globalThis.__sn_dispose?.();
+    } finally {
+      this.operations = [];
+      this.disposed = true;
+      this.poisoned = true;
+    }
+  }
+
+  private abortAfterFailure(error: unknown): never {
+    try {
+      this.abort();
+    } catch (cleanupError) {
+      throw new Error(
+        `Host batch failed (${String(error)}); aborting the Surface session also failed (${String(cleanupError)})`,
+      );
+    }
+    throw error;
   }
 
   private allocateNodeId(): number {
