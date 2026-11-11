@@ -72,3 +72,9 @@ test("rejects NUL in protocol strings before crossing the host boundary", () => 
   encoder.createElement(`root${String.fromCharCode(0)}unsafe`);
   assert.throws(() => encoder.encode(), /cannot contain NUL/);
 });
+
+test("rejects unpaired low UTF-16 surrogate input", () => {
+  const encoder = new HostBatchEncoder();
+  encoder.createText("\\udc00");
+  assert.throws(() => encoder.encode(), /unpaired low surrogate/);
+});

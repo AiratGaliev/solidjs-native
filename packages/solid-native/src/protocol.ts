@@ -47,7 +47,7 @@ function encodeUtf8(value: string): Uint8Array {
     let codePoint = value.charCodeAt(index);
     if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
       const low = value.charCodeAt(index + 1);
-      if (low < 0xdc00 || low > 0xdfff) throw new TypeError("String contains an unpaired high surrogate");
+      if (!(low >= 0xdc00 && low <= 0xdfff)) throw new TypeError("String contains an unpaired high surrogate");
       codePoint = 0x10000 + ((codePoint - 0xd800) << 10) + (low - 0xdc00);
       index += 1;
     } else if (codePoint >= 0xdc00 && codePoint <= 0xdfff) {
