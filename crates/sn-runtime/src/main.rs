@@ -63,7 +63,7 @@ fn main() -> ExitCode {
             if let Some(code) = source.as_deref() {
                 ctx.eval::<(), _>(code)?;
                 println!("JavaScript bundle executed successfully");
-    
+
                 let (root_id, button_id, initial_text, node_count, mount_count) = {
                     let host = state.try_borrow()
                         .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
@@ -83,7 +83,7 @@ fn main() -> ExitCode {
                 };
                 println!("Rust UiTree committed: root={}, nodes={node_count}, revision=1, mount batches={mount_count}", root_id.get());
                 println!("Solid counter initial text: {initial_text}");
-    
+
                 {
                     let host = state
                         .try_borrow()
@@ -115,11 +115,11 @@ fn main() -> ExitCode {
                         ));
                     }
                 }
-    
+
                 if !dispatch_event_and_flush(&ctx, &state, button_id, "click")? {
                     return Err(Exception::throw_internal(&ctx, "Counter click event was not dispatched"));
                 }
-    
+
                 let host = state.try_borrow()
                     .map_err(|_| Exception::throw_internal(&ctx, "Host state is already borrowed"))?;
                 let count_text = host.tree.find_text_containing("Count:")
@@ -147,7 +147,7 @@ fn main() -> ExitCode {
                 }
                 println!("QuickJS click dispatched to JS callback; Rust UiTree text updated: {updated_text}");
                 drop(host);
-    
+
                 let dispose: rquickjs::Function = ctx.globals().get("__sn_demo_dispose")?;
                 dispose.call::<_, ()>(())?;
                 {
@@ -157,7 +157,7 @@ fn main() -> ExitCode {
                         return Err(Exception::throw_internal(&ctx, "Renderer disposal did not release the tree and callback roots"));
                     }
                 }
-    
+
                 let mount: rquickjs::Function = ctx.globals().get("__sn_mount_counter")?;
                 for _ in 0..8 {
                     let cleanup: rquickjs::Function = mount.call(())?;
