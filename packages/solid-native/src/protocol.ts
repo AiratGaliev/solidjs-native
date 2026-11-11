@@ -365,25 +365,29 @@ export class HostBatchEncoder {
 
     let ack: HostBatchAck;
     try {
+      // The Rust binding throws only when decoding/validation/application rejects
+      // the transaction. UiTree::apply_batch is atomic, so the committed Surface
+      // state is unchanged and only pending JS work/callback roots must be dropped.
       ack = apply(bytes);
-      if (
-        !ack ||
-        !ack.ok ||
-        !Number.isSafeInteger(ack.surfaceId) ||
-        !Number.isSafeInteger(ack.sessionGeneration) ||
-        !Number.isSafeInteger(ack.transactionId) ||
-        !Number.isSafeInteger(ack.revision) ||
-        !Number.isSafeInteger(ack.nextNodeId) ||
-        ack.surfaceId !== this.surfaceId ||
-        ack.sessionGeneration !== this.sessionGeneration ||
-        ack.transactionId !== this.transactionId ||
-        ack.revision !== this.revision + 1 ||
-        ack.nextNodeId <= 0
-      ) {
-        throw new Error(ack?.error ?? "Native host rejected or mis-acknowledged a batch");
-      }
     } catch (error) {
-      this.abortAfterFailure(error);
+      this.poisonAfterFailure(error);
+    }
+
+    if (
+      !ack ||
+      !ack.ok ||
+      !Number.isSafeInteger(ack.surfaceId) ||
+      !Number.isSafeInteger(ack.sessionGeneration) ||
+      !Number.isSafeInteger(ack.transactionId) ||
+      !Number.isSafeInteger(ack.revision) ||
+      !Number.isSafeInteger(ack.nextNodeId) ||
+      ack.surfaceId !== this.surfaceId ||
+      ack.sessionGeneration !== this.sessionGeneration ||
+      ack.transactionId !== this.transactionId ||
+      ack.revision !== this.revision + 1 ||
+      ack.nextNodeId <= 0
+    ) {
+      this.abortAfterFailure(new Error(ack?.error ?? "Native host returned an invalid or mismatched acknowledgement"));
     }
 
     this.revision = ack.revision;
