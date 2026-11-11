@@ -377,8 +377,14 @@ mod tests {
         }
 
         assert_eq!(sink.commits().len(), MAX_RETAINED_HEADLESS_COMMITS);
-        assert_eq!(sink.commits().front().map(|ack| ack.transaction_id), Some(6));
-        assert_eq!(sink.commits().back().map(|ack| ack.transaction_id), Some(69));
+        assert_eq!(
+            sink.commits().front().map(|ack| ack.transaction_id),
+            Some(6)
+        );
+        assert_eq!(
+            sink.commits().back().map(|ack| ack.transaction_id),
+            Some(69)
+        );
     }
 
     #[test]

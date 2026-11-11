@@ -273,27 +273,55 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::CreateElement {
                 id: read_node_id(record, 8)?,
-                tag: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
+                tag: read_string_ref(
+                    record,
+                    16,
+                    bytes,
+                    arena_offset,
+                    arena_length,
+                    decoded_string_bytes,
+                )?,
             })
         }
         2 => {
             expect_size(record, 24)?;
             Ok(HostOperation::CreateText {
                 id: read_node_id(record, 8)?,
-                text: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
+                text: read_string_ref(
+                    record,
+                    16,
+                    bytes,
+                    arena_offset,
+                    arena_length,
+                    decoded_string_bytes,
+                )?,
             })
         }
         3 => {
             expect_size(record, 24)?;
             Ok(HostOperation::ReplaceText {
                 id: read_node_id(record, 8)?,
-                text: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
+                text: read_string_ref(
+                    record,
+                    16,
+                    bytes,
+                    arena_offset,
+                    arena_length,
+                    decoded_string_bytes,
+                )?,
             })
         }
         4 => {
             expect_size(record, 40)?;
             let id = read_node_id(record, 8)?;
-            let name = read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?;
+            let name = read_string_ref(
+                record,
+                16,
+                bytes,
+                arena_offset,
+                arena_length,
+                decoded_string_bytes,
+            )?;
             let kind = record[24];
             if record[25..32].iter().any(|byte| *byte != 0) {
                 return Err(ProtocolError::ReservedBits);
@@ -330,7 +358,14 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::RemoveProperty {
                 id: read_node_id(record, 8)?,
-                name: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
+                name: read_string_ref(
+                    record,
+                    16,
+                    bytes,
+                    arena_offset,
+                    arena_length,
+                    decoded_string_bytes,
+                )?,
             })
         }
         6 => {
@@ -358,7 +393,14 @@ fn decode_operation(
         8 => {
             expect_size(record, 32)?;
             let id = read_node_id(record, 8)?;
-            let event = read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?;
+            let event = read_string_ref(
+                record,
+                16,
+                bytes,
+                arena_offset,
+                arena_length,
+                decoded_string_bytes,
+            )?;
             let handler = read_u32(record, 24)?;
             if read_u32(record, 28)? != 0 {
                 return Err(ProtocolError::ReservedBits);
@@ -376,13 +418,27 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::UnbindEvent {
                 id: read_node_id(record, 8)?,
-                event: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
+                event: read_string_ref(
+                    record,
+                    16,
+                    bytes,
+                    arena_offset,
+                    arena_length,
+                    decoded_string_bytes,
+                )?,
             })
         }
         10 => {
             expect_size(record, 32)?;
             let id = read_node_id(record, 8)?;
-            let name = read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?;
+            let name = read_string_ref(
+                record,
+                16,
+                bytes,
+                arena_offset,
+                arena_length,
+                decoded_string_bytes,
+            )?;
             let resource_id = read_u64(record, 24)?;
             if resource_id == 0 {
                 return Err(ProtocolError::InvalidIdentifier);
@@ -397,7 +453,14 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::DetachResource {
                 id: read_node_id(record, 8)?,
-                name: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
+                name: read_string_ref(
+                    record,
+                    16,
+                    bytes,
+                    arena_offset,
+                    arena_length,
+                    decoded_string_bytes,
+                )?,
             })
         }
         other => Err(ProtocolError::UnknownOpcode(other)),
