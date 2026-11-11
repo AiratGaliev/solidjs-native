@@ -58,7 +58,20 @@ The current runtime smoke command is:
 pnpm smoke
 ```
 
-It builds the TSX demo and executes it through the embedded QuickJS runtime. It is a narrow runtime integration proof, not a native window, renderer, platform input, accessibility or full GUI E2E suite.
+It builds the TSX demo and executes it through the reusable `EngineSession` library on its dedicated QuickJS owner thread. The smoke verifies the initial typed host mount, one Solid signal update through a single `ReplaceText` operation, root cleanup, and repeated mount/unmount callback reclamation. It is a narrow runtime integration proof, not a native window, platform input, accessibility or full GUI E2E suite.
+
+The runtime scheduler's focused Rust tests cover:
+- dedicated-thread session ownership and string-only evaluation results;
+- Promise/queueMicrotask ordering;
+- timeout cancellation and deterministic due-timer delivery with `ManualClock`;
+- RAF request ordering, same-frame cancellation, and deferral of callbacks requested during a frame;
+- one-shot external completions with an owned typed-array payload;
+- Promise-job budget yielding and unhandled rejection diagnostics with bounded diagnostic text;
+- bounded timer deadline storage after repeated set/clear cycles;
+- command payload byte-budget enforcement and cancellation state cleanup after completion;
+- shutdown interruption of a running JS turn followed by LIFO root cleanup;
+- callback-root cleanup during session teardown.
+
 
 ## 4. CI responsibilities and execution boundary
 
