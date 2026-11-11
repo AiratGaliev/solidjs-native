@@ -11,10 +11,8 @@ export type NativeNode = {
   nodeId: number;
   kind: "element" | "text";
   tag?: string;
-  text?: string;
   parent: NativeNode | null;
   children: NativeNode[];
-  properties: Record<string, unknown>;
   eventHandlerIds: Map<string, number>;
 };
 
@@ -53,22 +51,20 @@ function clearLocalSubtree(node: NativeNode): void {
   node.eventHandlerIds.clear();
   node.parent = null;
   node.children = [];
-  node.properties = {};
 }
 
 const renderer = createRenderer<NativeNode>({
   createElement(tag) {
     const nodeId = encoder.createElement(tag);
-    return { surfaceId: encoder.surfaceId, sessionGeneration: encoder.sessionGeneration, nodeId, kind: "element", tag, parent: null, children: [], properties: {}, eventHandlerIds: new Map() };
+    return { surfaceId: encoder.surfaceId, sessionGeneration: encoder.sessionGeneration, nodeId, kind: "element", tag, parent: null, children: [], eventHandlerIds: new Map() };
   },
   createTextNode(value) {
     const nodeId = encoder.createText(value);
-    return { surfaceId: encoder.surfaceId, sessionGeneration: encoder.sessionGeneration, nodeId, kind: "text", text: value, parent: null, children: [], properties: {}, eventHandlerIds: new Map() };
+    return { surfaceId: encoder.surfaceId, sessionGeneration: encoder.sessionGeneration, nodeId, kind: "text", parent: null, children: [], eventHandlerIds: new Map() };
   },
   replaceText(node, value) {
     assertCurrentHandle(node, "replaceText target");
     if (node.kind !== "text") throw new TypeError("replaceText target must be a text node");
-    node.text = value;
     encoder.replaceText(node.nodeId, value);
   },
   setProperty(node, name, value) {
@@ -88,7 +84,6 @@ const renderer = createRenderer<NativeNode>({
       } else {
         throw new TypeError(`Event property ${name} must be a callback or null`);
       }
-      node.properties[name] = value;
       return;
     }
 
@@ -96,12 +91,10 @@ const renderer = createRenderer<NativeNode>({
       throw new TypeError(`Property ${name} must use a supported primitive value`);
     }
     if (value === undefined) {
-      delete node.properties[name];
       encoder.removeProperty(node.nodeId, name);
       return;
     }
     const hostValue = value as HostValue;
-    node.properties[name] = hostValue;
     encoder.setProperty(node.nodeId, name, hostValue);
   },
   insertNode(parent, node, anchor) {

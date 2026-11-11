@@ -21,7 +21,6 @@ function createRoot(): NativeNode {
     tag: "root",
     parent: null,
     children: [],
-    properties: {},
     eventHandlerIds: new Map(),
   };
 }
