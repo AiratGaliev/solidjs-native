@@ -3,9 +3,12 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray};
 
 use sn_core::{
-    BatchHeader, CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId,
-    ProtocolError, SessionGeneration, SurfaceId, TreeError, UiTree, decode_batch,
+    CommitAck, HandlerId, HostBatch, HostOperation, MAX_BATCH_BYTES, NodeId, ProtocolError,
+    SessionGeneration, SurfaceId, TreeError, UiTree, decode_batch,
 };
+
+#[cfg(test)]
+use sn_core::BatchHeader;
 
 pub type SharedHostState = Rc<RefCell<HostState>>;
 
