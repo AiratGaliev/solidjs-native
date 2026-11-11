@@ -174,7 +174,7 @@ test("aborts the Surface when the native acknowledgement cannot be trusted", () 
   try {
     const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
     encoder.createElement("root");
-    assert.throws(() => encoder.flush(), /mis-acknowledged/);
+    assert.throws(() => encoder.flush(), /invalid or mismatched acknowledgement/);
     assert.equal(discarded, 1);
     assert.equal(disposed, 1);
     assert.throws(() => encoder.createElement("after-invalid-ack"), /disposed/);
