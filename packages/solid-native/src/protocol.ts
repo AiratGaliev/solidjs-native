@@ -65,17 +65,21 @@ function encodeUtf8(value: string): Uint8Array {
       throw new TypeError("String contains an unpaired low surrogate");
     }
 
-    if (codePoint <= 0x7f) {
+    const encodedLength = codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+    if (bytes.length > MAX_STRING_BYTES - encodedLength) {
+      throw new RangeError("Host protocol string length is outside the allowed range");
+    }
+
+    if (encodedLength === 1) {
       bytes.push(codePoint);
-    } else if (codePoint <= 0x7ff) {
+    } else if (encodedLength === 2) {
       bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
-    } else if (codePoint <= 0xffff) {
+    } else if (encodedLength === 3) {
       bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
     } else {
       bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
     }
   }
-  if (bytes.length > MAX_STRING_BYTES) throw new RangeError("Host protocol string length is outside the allowed range");
   return Uint8Array.from(bytes);
 }
 
@@ -376,6 +380,21 @@ export class HostBatchEncoder {
     this.transactionId += 1;
     this.operations = [];
     return ack;
+  }
+
+  abort(): void {
+    if (this.disposed) return;
+    this.operations = [];
+    try {
+      globalThis.__sn_discard_pending_callbacks?.();
+    } finally {
+      try {
+        globalThis.__sn_dispose?.();
+      } finally {
+        this.disposed = true;
+        this.poisoned = true;
+      }
+    }
   }
 
   dispose(): void {
