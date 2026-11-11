@@ -160,6 +160,7 @@ export function disposeHostSession(): void {
 }
 
 export function render(code: () => unknown, root: NativeNode) {
+  if (root.kind !== "element") throw new TypeError("Render root must be an element node");
   if (!Number.isSafeInteger(root.nodeId) || root.nodeId <= 0) {
     root.surfaceId = encoder.surfaceId;
     root.sessionGeneration = encoder.sessionGeneration;
