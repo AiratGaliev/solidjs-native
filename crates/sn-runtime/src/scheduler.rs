@@ -465,6 +465,8 @@ mod tests {
             assert_eq!(scheduler.pending_counts().0, 0);
             assert!(scheduler.deadlines.len() < MAX_TIMER_QUEUE_ENTRIES);
         });
+        state.borrow_mut().dispose();
+        runtime.run_gc();
     }
 
     #[test]
@@ -485,6 +487,8 @@ mod tests {
             let order: String = ctx.eval("order.join(',')").unwrap();
             assert_eq!(order, "sync,end,promise,microtask");
         });
+        state.borrow_mut().dispose();
+        runtime.run_gc();
     }
 
     #[test]
@@ -549,6 +553,8 @@ mod tests {
             let frames: String = ctx.eval("frames.join(',')").unwrap();
             assert_eq!(frames, "first:16.5,last:16.5,next:33");
         });
+        state.borrow_mut().dispose();
+        runtime.run_gc();
     }
 
     #[test]
@@ -576,5 +582,7 @@ mod tests {
             let intervals: u32 = ctx.eval("intervals").unwrap();
             assert_eq!(intervals, 2);
         });
+        state.borrow_mut().dispose();
+        runtime.run_gc();
     }
 }
