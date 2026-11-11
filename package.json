@@ -13,7 +13,8 @@
     "format:rust:check": "cargo fmt --all -- --check",
     "lint:rust": "cargo clippy --workspace --all-targets --locked -- -D warnings",
     "check:rust": "pnpm format:rust:check && pnpm lint:rust && pnpm test:rust",
-    "check": "pnpm typecheck && pnpm build && pnpm check:rust"
+    "check": "pnpm typecheck && pnpm build && pnpm test:host-protocol && pnpm check:rust",
+    "test:host-protocol": "node --test tests/host-protocol.test.mjs"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

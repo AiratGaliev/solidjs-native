@@ -125,6 +125,8 @@ Per-node generation-aware packed handle понадобится только пе
 
 ## 4. Typed host batch protocol
 
+The implemented M1 wire format is specified byte-for-byte in [Host Protocol v1](host-protocol-v1.md). The specification is the canonical reference for offsets, record sizes, opcodes, value tags, limits and acknowledgement fields.
+
 ### 4.1. Why not JSON
 
 JSON в текущем прототипе может использоваться для диагностического вывода, но не должен стать shipping bridge. JSON требует аллокаций, кодирования строк, повторного парсинга и runtime validation, плохо описывает бинарные ресурсы и не имеет естественной модели typed handles.
@@ -428,19 +430,10 @@ End-to-end acceptance:
 - verify MountBatch contains only expected text mutation;
 - verify no duplicate authoritative JS tree exists.
 
-## 12. Current state and next implementation step
+## 12. M1 implementation boundary and next milestone
 
-Current code already proves that official SolidJS Universal output can run in embedded QuickJS-NG for a synchronous counter interaction. It does not yet implement the Rust bridge described here.
+M1 connects the official SolidJS Universal renderer to the authoritative Rust UiTree through Host Protocol v1. The TS adapter maintains only the traversal topology needed by Solid; node identity, committed properties, text, event metadata and revisions are held by Rust. The QuickJS binding copies bounded Uint8Array input into owned Rust memory and never retains a JS backing-store pointer.
 
-The next milestone is therefore not Taffy or graphics. It is the M1 vertical slice:
-- stable host IDs;
-- host batch contract;
-- native binary/typed transport;
-- Rust decoder;
-- atomic UiTree::apply_batch;
-- acknowledgement and error path;
-- event dispatch from engine into JS;
-- second commit after Solid signal update;
-- integration tests proving Rust tree is the authoritative tree.
+The synchronous Counter path commits its initial mount, dispatches click into a rooted JS callback, commits the resulting signal-driven text replacement and exercises renderer disposal. HeadlessMountSink assertions observe the mount/update/remove deltas, while repeated mount/unmount tests verify callback roots return to baseline. This is an M1 host-protocol acceptance path, not a native window, layout pipeline or platform renderer.
 
-Only after this slice is green should runtime async compatibility become the next major focus.
+The next major implementation focus is M2 runtime scheduling: Promise jobs, queueMicrotask, timers, fairness, cancellation and shutdown ordering. Do not begin M2 until all M1 acceptance criteria are green.

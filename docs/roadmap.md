@@ -69,6 +69,8 @@ Exit criteria: complete.
 
 ## 4. M1 — Rust-owned host tree and typed protocol
 
+Status: implementation submitted in PR #4. The topic Fast CI gate passes on the implementation branch; the Counter host-protocol smoke acceptance remains pending on the integrated `dev → test` promotion candidate. M2 stays blocked until the M1 acceptance gate is green.
+
 ### Goal
 
 Remove the duplicated authoritative tree. SolidJS renderer drives the Rust UiTree through a typed batch protocol.
@@ -88,7 +90,7 @@ Remove the duplicated authoritative tree. SolidJS renderer drives the Rust UiTre
 11. Add input-event dispatch from engine into JS handler registry.
 12. Add cleanup on node removal and renderer dispose.
 13. Replace current synchronous counter inspection with Rust tree assertions.
-14. Preserve a test-only diagnostic JSON representation if it simplifies debugging; it must not be used as production transport.
+14. Keep JSON outside the production host mutation transport; the implementation uses no JSON encoding or parsing on the operation path.
 
 ### Required operation set
 
@@ -124,7 +126,7 @@ Remove the duplicated authoritative tree. SolidJS renderer drives the Rust UiTre
 - A normalized click event enters Rust engine and calls JS callback.
 - Solid signal update creates second batch.
 - Rust UiTree contains the updated text.
-- MountBatch/HeadlessMountSink observes only the expected delta.
+- HeadlessMountSink observes the expected initial Counter mount delta and exactly one ReplaceText delta after the click-driven signal update. The platform MountBatch pipeline remains a separate M3 deliverable.
 - Adapter mirror is clearly non-authoritative and recoverable after transaction failure.
 - No JSON serialization exists in the runtime host operation path.
 
