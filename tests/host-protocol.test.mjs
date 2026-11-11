@@ -83,9 +83,11 @@ test("rejects unpaired low UTF-16 surrogate input", () => {
 test("discards uncommitted callback roots and poisons the adapter after encode failure", () => {
   const previousRegister = globalThis.__sn_register_callback;
   const previousDiscard = globalThis.__sn_discard_pending_callbacks;
+  const previousApply = globalThis.__sn_apply_batch;
   let discarded = 0;
   globalThis.__sn_register_callback = () => 7;
   globalThis.__sn_discard_pending_callbacks = () => { discarded += 1; };
+  globalThis.__sn_apply_batch = () => { throw new Error("Native batch binding must not run after encode failure"); };
 
   try {
     const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
@@ -100,5 +102,7 @@ test("discards uncommitted callback roots and poisons the adapter after encode f
     else globalThis.__sn_register_callback = previousRegister;
     if (previousDiscard === undefined) delete globalThis.__sn_discard_pending_callbacks;
     else globalThis.__sn_discard_pending_callbacks = previousDiscard;
+    if (previousApply === undefined) delete globalThis.__sn_apply_batch;
+    else globalThis.__sn_apply_batch = previousApply;
   }
 });
