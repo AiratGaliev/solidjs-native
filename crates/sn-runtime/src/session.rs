@@ -1651,6 +1651,12 @@ mod tests {
         let handle = session.handle();
 
         let ticket = handle.evaluate("while (true) {}").unwrap();
+        let start_deadline = Instant::now() + Duration::from_secs(2);
+        while handle.active_turn.load(Ordering::Acquire) != ticket.task_id() {
+            assert!(Instant::now() < start_deadline, "script did not enter its active JS turn");
+            thread::yield_now();
+        }
+
         assert!(ticket.cancel());
         assert_eq!(ticket.wait(), Err(SessionError::Cancelled));
 
