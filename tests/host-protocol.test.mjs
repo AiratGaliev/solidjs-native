@@ -57,6 +57,34 @@ test("encodes host batches without relying on TypedArray.from", () => {
   }
 });
 
+test("encodes host strings without QuickJS-missing convenience methods", () => {
+  const descriptors = [
+    [String.prototype, "includes", Object.getOwnPropertyDescriptor(String.prototype, "includes")],
+    [String, "fromCharCode", Object.getOwnPropertyDescriptor(String, "fromCharCode")],
+    [Uint8Array, "from", Object.getOwnPropertyDescriptor(Uint8Array, "from")],
+  ];
+
+  try {
+    for (const [target, key] of descriptors) {
+      Object.defineProperty(target, key, { configurable: true, writable: true, value: undefined });
+    }
+
+    const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
+    encoder.createElement("root");
+    const bytes = encoder.encode();
+    const view = viewOf(bytes);
+
+    assert.equal(bytes.length, 92);
+    assert.equal(view.getUint8(64), 1);
+    assert.equal(new TextDecoder().decode(bytes.slice(88)), "root");
+  } finally {
+    for (const [target, key, descriptor] of descriptors) {
+      if (descriptor) Object.defineProperty(target, key, descriptor);
+      else delete target[key];
+    }
+  }
+});
+
 test("writes string references into one UTF-8 arena and preserves empty text", () => {
   const encoder = new HostBatchEncoder({ surfaceId: 2, sessionGeneration: 3 });
   encoder.createText("Привет🙂");
