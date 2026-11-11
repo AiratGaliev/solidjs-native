@@ -34,6 +34,29 @@ test("encodes the version 1 CreateElement golden fixture", () => {
   assert.equal(new TextDecoder().decode(bytes.slice(88)), "root");
 });
 
+test("encodes host batches without relying on TypedArray.from", () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(Uint8Array, "from");
+  try {
+    Object.defineProperty(Uint8Array, "from", {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+
+    const encoder = new HostBatchEncoder({ surfaceId: 1, sessionGeneration: 1 });
+    encoder.createElement("root");
+    const bytes = encoder.encode();
+    const view = viewOf(bytes);
+
+    assert.equal(bytes.length, 92);
+    assert.equal(view.getUint8(64), 1);
+    assert.equal(new TextDecoder().decode(bytes.slice(88)), "root");
+  } finally {
+    if (originalDescriptor) Object.defineProperty(Uint8Array, "from", originalDescriptor);
+    else delete Uint8Array.from;
+  }
+});
+
 test("writes string references into one UTF-8 arena and preserves empty text", () => {
   const encoder = new HostBatchEncoder({ surfaceId: 2, sessionGeneration: 3 });
   encoder.createText("Привет🙂");
