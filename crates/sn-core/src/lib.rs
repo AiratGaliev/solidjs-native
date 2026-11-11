@@ -1,8 +1,9 @@
 mod host_protocol;
 
 pub use host_protocol::{
-    BatchHeader, HostBatch, HostOperation, MAX_BATCH_BYTES, MAX_OPERATIONS, ProtocolError,
-    ValueKind, decode_batch,
+    BatchHeader, HOST_PROTOCOL_MAJOR, HOST_PROTOCOL_MINOR, HostBatch, HostOperation,
+    MAX_BATCH_BYTES, MAX_DECODED_STRING_BYTES, MAX_OPERATIONS, ProtocolError, ValueKind,
+    decode_batch,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -104,6 +105,14 @@ pub enum TreeError {
     InvalidResourceId,
     #[error("batch targets a different Surface")]
     ForeignSurface,
+    #[error("SurfaceId and SessionGeneration must be non-zero")]
+    InvalidSurfaceIdentity,
+    #[error("unsupported host protocol version {major}.{minor}")]
+    UnsupportedProtocolVersion { major: u16, minor: u16 },
+    #[error("host batch must contain at least one operation")]
+    EmptyBatch,
+    #[error("host batch contains too many operations")]
+    TooManyOperations,
     #[error("batch targets a stale or different Surface session")]
     StaleSession,
     #[error("batch revision conflict: expected {expected}, received {actual}")]
@@ -349,6 +358,21 @@ impl UiTree {
     }
 
     pub fn apply_batch(&mut self, batch: &HostBatch) -> Result<CommitAck, TreeError> {
+        if self.surface_id.get() == 0 || self.session_generation.get() == 0 {
+            return Err(TreeError::InvalidSurfaceIdentity);
+        }
+        if batch.header.major != HOST_PROTOCOL_MAJOR || batch.header.minor != HOST_PROTOCOL_MINOR {
+            return Err(TreeError::UnsupportedProtocolVersion {
+                major: batch.header.major,
+                minor: batch.header.minor,
+            });
+        }
+        if batch.operations.is_empty() {
+            return Err(TreeError::EmptyBatch);
+        }
+        if batch.operations.len() > MAX_OPERATIONS {
+            return Err(TreeError::TooManyOperations);
+        }
         if batch.header.surface_id != self.surface_id.get() {
             return Err(TreeError::ForeignSurface);
         }
@@ -760,6 +784,32 @@ mod tests {
         assert_eq!(ack.revision, 1);
         assert_eq!(ack.next_node_id, 3);
         assert_eq!(tree.text_content(node_id(2)).unwrap(), "hello");
+    }
+
+    #[test]
+    fn apply_batch_rejects_unvalidated_version_and_empty_batch() {
+        let mut tree = UiTree::default();
+        let mut batch = HostBatch {
+            header: BatchHeader {
+                major: 2,
+                minor: 0,
+                surface_id: 1,
+                session_generation: 1,
+                transaction_id: 1,
+                expected_revision: 0,
+            },
+            operations: Vec::new(),
+        };
+
+        assert_eq!(
+            tree.apply_batch(&batch),
+            Err(TreeError::UnsupportedProtocolVersion { major: 2, minor: 0 })
+        );
+        batch.header.major = HOST_PROTOCOL_MAJOR;
+        batch.header.minor = HOST_PROTOCOL_MINOR;
+        assert_eq!(tree.apply_batch(&batch), Err(TreeError::EmptyBatch));
+        assert_eq!(tree.revision(), 0);
+        assert_eq!(tree.node_count(), 0);
     }
 
     #[test]

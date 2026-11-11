@@ -7,8 +7,10 @@ pub const MAX_OPERATIONS: usize = 65_535;
 pub const MAX_STRING_BYTES: usize = 1024 * 1024;
 pub const MAX_DECODED_STRING_BYTES: usize = MAX_BATCH_BYTES;
 const MAGIC: &[u8; 4] = b"SNHB";
-const PROTOCOL_MAJOR: u16 = 1;
-const PROTOCOL_MINOR: u16 = 0;
+pub const HOST_PROTOCOL_MAJOR: u16 = 1;
+pub const HOST_PROTOCOL_MINOR: u16 = 0;
+const PROTOCOL_MAJOR: u16 = HOST_PROTOCOL_MAJOR;
+const PROTOCOL_MINOR: u16 = HOST_PROTOCOL_MINOR;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatchHeader {

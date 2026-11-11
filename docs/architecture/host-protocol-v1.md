@@ -33,6 +33,7 @@ Limits:
 - Maximum complete batch: 4 MiB.
 - Maximum operations: 65,535.
 - Maximum individual UTF-8 string: 1 MiB.
+- Maximum cumulative decoded string bytes per batch: 4 MiB. This prevents repeated references to the same arena range from amplifying memory during decoding.
 - Every record, offset and length is range-checked with checked arithmetic.
 - Strings must be valid UTF-8 and must not contain NUL.
 - Empty text/property string values are valid; names and tags are validated by the tree contract.
