@@ -80,7 +80,7 @@ fn main() -> ExitCode {
             if host.sink().commits().len() != 2 {
                 return Err(Exception::throw_internal(&ctx, "HeadlessMountSink did not observe the mount and update batches"));
             }
-            let update_batch = host.sink().commits().last()
+            let update_batch = host.sink().commits().back()
                 .ok_or_else(|| Exception::throw_internal(&ctx, "Missing headless mount update"))?;
             if !update_batch.delta.iter().any(|operation| matches!(operation, sn_core::HostOperation::ReplaceText { .. })) {
                 return Err(Exception::throw_internal(&ctx, "HeadlessMountSink update delta has no ReplaceText operation"));
