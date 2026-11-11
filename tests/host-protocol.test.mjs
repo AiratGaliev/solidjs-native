@@ -93,7 +93,7 @@ test("rejects a string above the 1 MiB UTF-8 limit during encoding", () => {
 });
 
 
-test("discards uncommitted callback roots and poisons the adapter after encode failure", () => {
+test("aborts the Surface and releases uncommitted callback roots after encode failure", () => {
   const previousRegister = globalThis.__sn_register_callback;
   const previousDiscard = globalThis.__sn_discard_pending_callbacks;
   const previousDispose = globalThis.__sn_dispose;
