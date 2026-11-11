@@ -1,7 +1,7 @@
 # Platform Backends и Native Embedding
 
 - Статус: целевая архитектура платформенного слоя.
-- Связанные документы: target-architecture.md, solidjs-runtime-and-host-protocol.md.
+- Связанные документы: [target-architecture.md](target-architecture.md), [Tauri replacement scope](tauri-replacement-scope.md), [SolidJS runtime and host protocol](solidjs-runtime-and-host-protocol.md), [NSH implementation reference map](nsh-feature-parity.md).
 - Основное правило: общая семантика UI, разные нативные реализации.
 
 ## 1. Область ответственности
@@ -84,6 +84,31 @@ MountSink получает DTO, opaque handles и immutable snapshots. Он не
 
 Наличие функции зависит от платформы. Общее API возвращает capability result или typed unsupported error. Не использовать пустые заглушки, которые выглядят как успешная операция.
 
+### 2.4. PlatformApplicationHost и PlatformWindowHost
+
+Application framework требует отдельного уровня интеграции с процессом приложения и верхнеуровневыми окнами. Не расширять per-Surface PlatformHost до универсального OS API.
+
+**PlatformApplicationHost** отвечает за process/application-wide facilities:
+- app identity, startup arguments, activation and single-instance handoff;
+- application lifecycle: ready, activate/deactivate, suspend/resume, quit and restart;
+- application menu and context-menu integration where owned by the OS;
+- tray/status item where the target platform supports the concept;
+- global shortcut registration where supported and permission/policy allows it;
+- notification delivery;
+- URL scheme and file-association activation;
+- application-wide service registration and shutdown ordering.
+
+**PlatformWindowHost** отвечает за один top-level native window:
+- create/destroy, show/hide, activate/focus and close request;
+- title, icon, bounds, size constraints, decorations and resizability;
+- minimize/maximize/fullscreen and window state reporting;
+- native menu attachment and window-specific shortcut scope;
+- mapping a top-level window to one or more Surface hosts according to the selected composition model.
+
+**PlatformHost** remains the per-Surface host integration. It attaches a Surface to a window or externally supplied native host view, handles resize/environment/frame dispatch and disposal. **MountSink** continues to apply renderer MountBatch data to native UI resources.
+
+The application-level APIs exposed to SolidJS must go through the separate Application Bridge and Rust-side capability checks. Platform interfaces are implementation contracts, not direct JavaScript bindings. Some facilities are unavailable or behave differently on particular OS targets; report explicit capability support instead of pretending every platform has a tray, global shortcuts or identical lifecycle behavior.
+
 ## 3. Представление элементов
 
 ### 3.1. Не каждый node — отдельный OS view
@@ -108,6 +133,8 @@ Backend имеет две cooperating части:
 2. Native control host — размещение настоящих системных controls и внешних native components.
 
 Обе части используют одни logical frames, clipping, transforms и z-order, рассчитанные engine.
+
+sn-style/sn-layout передают platform backend вычисленные style/layout snapshots и paint/resource state через MountBatch. Backend поддерживает собственное retained-представление платформенных узлов и рисует его нативными API. Windows first slice uses Direct2D/DirectWrite following NSH; other OS backends use their corresponding native drawing stacks following the same NSH per-platform model. Отдельный универсальный RenderScene/DisplayList и unified GPU renderer не являются частью целевой архитектуры.
 
 ## 4. Windows backend
 
@@ -247,11 +274,13 @@ The browser backend should use the browser's JS engine rather than embedding Qui
 
 ## 10. Optional backends
 
-GPUI and terminal renderers are optional extension targets. They are not part of the first platform parity promise.
+GPUI is a comparative desktop-framework reference, not a selected platform backend. A GPUI host adapter is outside the current target architecture and should be considered only for a concrete host-integration requirement. A terminal diagnostics view is not a native UI renderer and can be implemented independently if needed.
 
-A GPUI backend is useful for embedding in applications already built with GPUI. A TUI backend may be useful for tests, diagnostics and terminal dashboards. Both must implement the same platform-neutral contracts and must not change sn-core semantics.
+Native rendering follows NSH's per-platform strategy: each platform backend owns its drawing API, retained platform state, surface lifecycle and native control integration. Per-platform batching and damage tracking remain backend implementation details.
 
-These backends should be implemented only after MountBatch, layout, input and accessibility interfaces are stable.
+Phaser preview runs through the separate Web target in a normal browser and does not require an embedded browser engine in the native host. The selected native rendering model remains NSH-inspired and per-platform.
+
+These backends/components should be implemented only after MountBatch, normalized rendering, input and accessibility interfaces are stable.
 
 ## 11. Native components
 
@@ -352,7 +381,7 @@ Recommended order:
 5. macOS backend; validate AppKit/CoreText and embedding.
 6. Android backend; validate JNI, density, IME and Activity lifecycle.
 7. iOS backend; validate UIKit, keyboard, safe areas and Swift embedding.
-8. Optional GPUI/TUI backends if real consumers justify them.
+8. Additional host integrations only when a concrete external consumer requires them; do not create alternative GPUI/TUI renderer backends as speculative architecture.
 
 The order may be adjusted for available build hosts and hardware, but no target may be declared complete based only on cross-compilation.
 

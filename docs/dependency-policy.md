@@ -133,32 +133,67 @@ Patch/minor updates обычно объединяются в один dependency
 | rquickjs | 0.14.0 | Cargo workspace pins exactly `=0.14.0`; lockfile resolves 0.14.0 | Latest stable binding checked; exact pin adopted |
 | thiserror | 2.0.21 | Cargo workspace pins exactly `=2.0.21`; lockfile resolves 2.0.21 | Latest stable version checked; exact pin adopted |
 | serde | 1.0.229 | Transitive serde_core at 1.0.229; not a direct dependency yet | Select current stable when M1 protocol implementation adds it |
-| Taffy | 0.15.1 reported by current docs.rs index | Not a dependency yet | Recheck official crates.io and test its low-level API when M3 starts |
-| QuickJS-NG source | upstream 0.18.0 | rquickjs 0.14.0 changelog identifies bundled QuickJS-NG 0.16.2 | Explicit compatibility investigation required; see section 8 |
+| Taffy | 0.15.1 stable; MSRV 1.71; MIT | Not a dependency yet | Selected for the M3 layout prototype behind `sn-layout`; use `default-features = false` with only `std`, `flexbox`, `grid`, `block_layout`, `calc`, `content_size`; implement custom-tree out-of-flow hooks directly (not a Cargo feature) |
+| Tailwind CSS / `@tailwindcss/vite` | v4 stable; `@tailwindcss/vite` 4.2.2 is the first reviewed release whose peer range includes Vite 8 | Not installed; project uses Vite 8.3.7 | Keep the official Vite plugin as the authoring pipeline; at M3 pin the latest compatible stable Tailwind/plugin pair, not 4.2.1 or earlier. Native CSS support still requires `sn-style` conformance tests |
+| QuickJS-NG source | upstream release 0.18.0 (2026-11-01); current `rquickjs-sys 0.14.0` registry source embeds the 0.16.2 snapshot | `rquickjs 0.14.0` changelog identifies submodule commit `2c620e4`; cached registry `quickjs.h` declares 0.16.2 | Keep the binding/source pair intact. Treat the 0.16.2 → 0.18.0 delta as an M2 runtime-hardening review; do not replace the C engine independently of rquickjs |
 
 Versions reflect registry/release information checked on 2026-11-10. They are not claims that all listed versions have already passed this project's build. A future dependency is not adopted until its milestone's integration prototype is green.
+
+Tailwind CSS v4 and `@tailwindcss/vite` are the selected authoring toolchain direction, but neither is installed in the current workspace. Because the project pins Vite 8.3.7, the M3 implementation must use `@tailwindcss/vite` 4.2.2 or later; pin the latest compatible stable pair after checking peer requirements, license, output semantics and native stylesheet compiler integration. The architectural requirement does not imply that Tailwind integration is already implemented.
+
+### 7.1. Selected subsystem directions and candidates (not yet integrated)
+
+The following are architecture selections or prototype candidates, not entries in the current Cargo workspace. Their exact versions and feature graphs must be rechecked at implementation time.
+
+| Component | Reviewed upstream baseline / source | Project status |
+|---|---|---|
+| Servo Stylo | 0.18.0; commit `8bde0e96db888b7f188830bea261e72b2006fd73`; MPL-2.0 | First M3 CSS prototype to evaluate; not adopted |
+| Taffy | 0.15.1; MSRV 1.71; MIT | Selected M3 layout prototype behind `sn-layout`; not yet installed |
+| AccessKit core | 0.25.2; MSRV 1.85; MIT OR Apache-2.0 | Selected semantic tree/action contract; not integrated. Platform adapter crates are versioned independently and may have a higher MSRV; verify each adapter's compatibility and feature coverage per OS |
+| `style-engine` | 1.0.0, release 2026-10-10; MSRV 1.90; MIT OR Apache-2.0 | Source-level comparison reference only under current MSRV 1.87; do not add as a dependency. Its built-in layout/text/paint layers are outside our selected renderer architecture |
+| `read-fonts`, `skrifa`, HarfBuzz, `image`, `resvg`, `euclid` | Exact releases intentionally not pinned yet | Evaluate only at text/resource/geometry milestones; choose compatible stable releases individually |
+
+The project currently declares Rust MSRV 1.87 and pins Rust 1.99.1 for development. Taffy 0.15.1 and the AccessKit 0.25.2 core crate declare MSRV 1.71 and 1.85 respectively ([AccessKit release history](https://docs.rs/crate/accesskit/0.25.2/source/CHANGELOG.md)); platform adapter crates are separate packages and can require a newer compiler, so their exact MSRV must be checked individually at the relevant platform milestone. The Stylo 0.18.0 manifest does not declare a workspace `rust-version`; its full transitive graph and build script must be checked in the M3 prototype. Do not infer Stylo's MSRV from Servo's workspace. `style-engine` 1.0.0 requires Rust 1.90 and is not an executable candidate while project MSRV remains 1.87; keep it as a source-level reference unless a separate MSRV decision is explicitly approved.
+
+No separate GPU renderer or embedded browser engine is selected for native rendering. Phaser preview is a separate Web-target workload executed by a normal browser; it does not add browser-engine dependencies to the native runtime.
 
 ## 8. QuickJS-NG and rquickjs version split
 
 Do not treat rquickjs version and upstream QuickJS-NG version as the same version.
 
 As of this baseline:
-- rquickjs 0.14.0 is the latest stable Rust binding found.
-- Its changelog says its 0.13.0 release updated bundled sys/quickjs to QuickJS-NG commit 2c620e4, identified there as QuickJS-NG 0.16.2.
-- Upstream QuickJS-NG has since released 0.18.0.
+- `rquickjs` 0.14.0 is the stable binding currently pinned by the project; its upstream changelog records the 0.13.0 bundled engine update to QuickJS-NG commit `2c620e4`.
+- The published `rquickjs-sys` 0.14.0 package in the local Cargo registry contains `quickjs.h` with `QJS_VERSION_MAJOR=0`, `MINOR=16`, `PATCH=2`; this is the exact engine actually compiled by the current dependency graph.
+- Official QuickJS-NG 0.18.0 was released on 2026-11-01. The 0.16.2 identifier above is a real QuickJS-NG version present in the published `rquickjs-sys` source; it is older than the current upstream release.
 
 Therefore, upgrading rquickjs to its latest crate release does not automatically provide the latest upstream QuickJS-NG source.
 
 Before M2 runtime hardening:
 1. Audit rquickjs-sys bundled source and exact upstream commit.
-2. Compare QuickJS-NG 0.16.2 and 0.18.0 for fixes that affect our runtime.
-3. Inspect open rquickjs upstream work/issues for 0.18 integration.
+2. Compare the exact bundled 0.16.2 source snapshot against official QuickJS-NG 0.18.0 and identify fixes/regressions that affect SolidJS Native, especially memory safety, ArrayBuffer semantics, module loading and scheduler behavior.
+3. Inspect upstream rquickjs releases/issues for a binding update and check the engine source actually shipped in the published crate.
 4. Build a small integration branch with the latest compatible binding/source combination.
 5. Run rquickjs tests, SolidJS runtime compatibility tests, Windows MSVC build and cross-target builds.
 6. Prefer upstream rquickjs integration if it becomes available.
 7. If no suitable stable binding exists and the newer engine is required, evaluate a minimal maintained fork/patch of rquickjs-sys; do not hand-edit vendored engine sources in the application crate.
 
 The selection must be based on compatibility and security evidence, not solely on matching upstream version numbers. Bytecode artifacts must never be assumed compatible across engine versions.
+
+QuickJS-NG aims to track current ECMAScript; ES2020 is the project's deliberately conservative native bundle target, not a claim about the engine's maximum language level. Both `tsconfig.json` and the Vite production build must explicitly target ES2020; TypeScript's target alone does not constrain Vite/Rollup output. Raise this target only after the pinned rquickjs/QuickJS-NG pair passes syntax and runtime conformance fixtures. QuickJS-NG does not provide browser DOM or Node.js APIs by itself. Native globals such as timers, `console`, `URL`, `TextEncoder` and `AbortController` are separate host capabilities and must be implemented or documented as unsupported. The build gate must execute the actual generated bundle in the pinned embedded runtime.
+
+The upstream `rquickjs` platform matrix marks QuickJS support on `x86_64-pc-windows-msvc` as experimental and does not establish iOS/Android support. The current Windows M0 smoke is useful project evidence, but not a production support claim. iOS and Android remain explicit cross-compile and on-device runtime gates before those platforms can be advertised.
+
+### 8.1. Longbridge quickjs-jit distribution (comparison candidate, not selected)
+
+Longbridge publishes `quickjs-jit`, a downstream distribution of `rquickjs`. The published crate is named `quickjs-jit`, while its Rust library name remains `rquickjs` for source compatibility. Version 0.14.2 (2026-11-05) is based on `rquickjs` 0.14.0 and QuickJS-NG commit `0fdea21` (0.16.2+); this is not an upgrade to upstream QuickJS-NG 0.18.0.
+
+Do not equate the `quickjs-jit` binding crate with an active JIT. The machine-code compiler/runtime is a separate `quickjs-jit-runtime` package, enabled with its `compiler` feature and attached to the VM. The binding, JIT runtime, core and sys crates must be pinned to the exact same release because the JIT ABI depends on internal QuickJS structure layouts. Mixing versions is unsupported and can fail at JIT startup.
+
+The NSH workspace selects the Longbridge distribution under the `rquickjs` dependency alias. This proves use of that binding distribution, not by itself that a VM has an active JIT; active JIT use must be verified at the runtime construction/attachment call site. Do not use NSH's package choice as a performance result for SolidJS Native.
+
+M2 may compare this candidate with upstream `rquickjs` only after M1 establishes a stable host protocol. Use the same representative SolidJS workload and measure cold startup, warm throughput, UI/event latency, memory, binary size, compile cost, GC behavior and supported native targets. Microbenchmarks alone are insufficient. Keep upstream `rquickjs` as the current M0 choice unless the JIT prototype demonstrates a meaningful end-to-end benefit without unacceptable platform, security or maintenance costs.
+
+References: [Longbridge quickjs-jit](https://github.com/longbridge/quickjs-jit), [quickjs-jit 0.14.2 package and runtime pairing](https://docs.rs/crate/quickjs-jit/0.14.2).
 
 ## 9. Stable versus experimental technology
 

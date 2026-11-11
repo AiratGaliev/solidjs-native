@@ -1,178 +1,145 @@
-# NSH Feature Parity и границы совместимости
+# NSH Implementation Reference and Reuse Map
 
-- Статус: scope и parity specification.
-- Референс: longbridge/nsh, текущая документация NSH проверена 2026-11-10.
-- Назначение: понимать, что значит «полноценная замена», не смешивая архитектурную схожесть, совместимость API и зрелость продукта.
+- Статус: engineering reference; не является спецификацией совместимости API.
+- Upstream: https://github.com/longbridge/nsh
+- Pinned source snapshot: [c16a7009674797eda8781076145c696e22144184](https://github.com/longbridge/nsh/commit/c16a7009674797eda8781076145c696e22144184), observed as the `main` branch head on 2026-11-10.
+- Проверка upstream-документации и исходников: 2026-11-10.
+- Product direction: [ADR-0008](../decisions/0008-tauri-class-application-framework.md).
+- Tauri-class application scope: [Tauri replacement scope](tauri-replacement-scope.md).
+- Link catalog and provenance rules: [Upstream references](../reference/upstream-references.md).
+- Consolidated dependency decisions: [Architecture Reuse and Dependency Adoption Map](dependency-adoption.md).
 
-## 1. Определение замены
+## 1. Роль NSH в проекте
 
-SolidJS Native является функциональной альтернативой NSH, когда пользователь может:
+NSH — основной implementation reference для native UI subsystems SolidJS Native. Он помогает изучать проверенные решения в следующих областях:
 
-- создать TSX/Solid application;
-- запускать её как самостоятельное native application на целевых ОС;
-- встраивать UI в существующие native приложения;
-- использовать нативный ввод, текст, focus, scrolling и accessibility;
-- создавать UI с layout, overlays, navigation, images и common controls;
-- применять единый API и общую архитектуру на всех поддерживаемых платформах;
-- собирать и тестировать приложение через единый CLI/toolchain;
-- обновлять UI при разработке через HMR;
-- поставлять динамические UI modules с проверяемой целостностью и ограниченными capabilities;
-- иметь headless тестовый режим и platform integration tests.
+- retained UI tree, commit pipeline и mount batches;
+- Taffy integration, layout invalidation, measurement и caching;
+- platform rendering и native resource lifecycle;
+- text shaping, measurement, editable text и IME;
+- pointer/keyboard/touch input, hit testing, focus, scrolling и gestures;
+- accessibility semantic tree и системные accessibility providers;
+- application/window integration, embedding, runtime packages, tooling и capability enforcement.
 
-Замена означает функциональную и workflow-эквивалентность по целевым сценариям. Это не означает бинарную, source-level или API-level совместимость с NSH.
+NSH **не является продуктовой целью SolidJS Native**. Продуктовая цель — самостоятельный Tauri-class application framework, способный заменить Tauri 2 в выбранных сценариях Codogma Engine и использоваться сторонними SolidJS/TypeScript приложениями. См. [Tauri replacement scope](tauri-replacement-scope.md).
 
-## 2. Стратегия совместимости
+NSH is not an obligatory runtime dependency and does not define SolidJS Native's public API names, package format or version baseline.
 
-Не копировать NSH API имена вслепую. Сначала определить:
-- семантику компонента;
-- типы и default values;
-- accessibility behavior;
-- focus and keyboard model;
-- event ordering;
-- child/slot behavior;
-- platform-specific variations;
-- cleanup and lifecycle;
-- security requirements.
+### Relationship to GPUI Kit / GPUI Shell
 
-После этого проектировать SolidJS-friendly API с нормальным TypeScript типизированием.
+NSH and GPUI Kit are related, not independent reference projects. NSH's current project documentation identifies GPUI Shell as the starting point for its original mobile plugin layer. NSH then evolved into a multi-platform framework for whole applications. It chose platform-owned UI backends for standalone apps, while keeping an optional GPUI backend for embedding NSH `AppView` inside GPUI and GPUI Kit applications.
 
-Не стремиться поддержать весь NSH API в одном релизе. Использовать feature matrix и maturity levels по каждой платформе.
+- [NSH project history and positioning](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/website/docs/index.md)
+- [NSH platform/backend matrix](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/website/docs/platforms.md)
+- [NSH GPUI embedding backend](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/website/docs/gpui.md)
+- [GPUI Kit comparison](gpui-kit-comparison.md)
 
-## 3. Feature mapping
+Do not attribute the GPUI renderer to NSH's standalone AppKit/Win32/GTK backends. The GPUI backend is a separate host/embedding option.
 
-| Возможность NSH | Целевой эквивалент SolidJS Native | Граница/отличие |
+## 2. Архитектурные границы, которые нельзя переносить автоматически
+
+NSH и SolidJS Native имеют разные application runtime contracts:
+
+| Область | NSH | SolidJS Native |
 |---|---|---|
-| TSX app modules | SolidJS TSX modules | Используем настоящий SolidJS Universal |
-| Rust apps | Native Rust extension modules | Rust-only UI authoring не является обязательным v1 |
-| Shared reactive engine | SolidJS runtime per native Surface | Нет второй Rust reactive graph |
-| Native renderer | Rust retained tree + platform backends | Typed batched bridge |
-| Layout | sn-layout over Taffy | Публичный API не привязан к Taffy types |
-| Native text | Text subsystem + OS engines | Native input first; custom editor later |
-| Native views | PlatformHost/MountSink | Logical nodes не обязаны быть 1:1 OS views |
-| Input/focus/gestures | Typed EngineEvent + platform input adapters | Main thread never enters JS |
-| Native scrolling | Platform-owned scrolling and engine state | Native frame-rate handling |
-| Accessibility | Semantic tree + OS accessibility adapters | Tested independently from drawing |
-| Animations | Engine descriptions + native animation driver | No JS per-frame for ordinary transitions |
-| Images/resources | Resource pipeline | Background decode, IDs and caching |
-| Network/fetch | Capability-backed runtime services | Explicit API compatibility table |
-| Navigation/overlays | Engine/base component primitives | Must preserve per-platform back/escape semantics |
-| Unstyled base components | sn-base | Behavior only; app owns visual design |
-| Styled component library | Optional community/app package | Not coupled to engine |
-| Web output | Browser DOM renderer | Browser JS engine, no QuickJS in browser |
-| CLI | sn-cli | Gradual evolution; not all commands in first milestone |
-| Dev server/HMR | sn-dev | Only after lifecycle/cleanup semantics are proven |
-| Package tooling | sn-package | Versioned manifests and hashes |
-| Signed runtime modules | Capability-sandboxed packages | Signature does not replace permission enforcement |
-| Embedding | AppView/Surface host APIs | Versioned C ABI plus Swift/Kotlin wrappers |
-| Headless tests | sn-testing/headless engine | Same runtime/core, no fake browser DOM |
-| GPUI backend | Optional platform adapter | Not required for initial parity |
-| Terminal UI | Optional TUI adapter | Useful for diagnostics, not core release requirement |
+| Reactivity | Rust-native reactive graph с Solid-like semantics | Настоящий upstream SolidJS runtime |
+| JSX/TSX | Собственный JSX compilation pipeline с вызовами native renderer | Официальный Solid compiler, Universal generation |
+| Renderer | NSH native renderer и собственная модель операций | `solid-js/universal` adapter и собственный versioned host protocol |
+| Tree ownership | NSH core shadow/retained tree | Rust `sn-core` authoritative tree после атомарного commit |
+| VM | QuickJS для TSX apps в NSH | QuickJS-NG через rquickjs для native targets |
+| Platform commit | NSH MountBatch и platform sink contracts | Собственный immutable MountBatch и Platform API |
+| UI thread policy | В основном отдельный UI thread; отдельные платформенные исключения документированы NSH | UI thread не исполняет пользовательский JS и не ждёт engine work синхронно |
+| Application APIs | NSH runtime modules и platform APIs | Собственный публичный Application Bridge и plugin contract |
 
-## 4. Core platform parity
+Не переносить NSH Rust reactive graph, JSX compiler, renderer callbacks или внутренние types в SolidJS Native. Можно перенимать наблюдаемое поведение и алгоритмы после адаптации к настоящему SolidJS и нашим ownership/threading invariants.
 
-Target platforms:
+NSH documentation описывает ограниченные ожидания layout на некоторых resize paths. Это не отменяет более строгий контракт SolidJS Native: platform UI thread не должен синхронно ждать QuickJS или выполнения engine work.
 
-- Windows desktop.
-- macOS desktop.
-- Linux desktop.
-- iOS.
-- Android.
-- Web.
+## 3. Реализации, которые следует изучить
 
-A platform is not considered supported merely because the Rust crate compiles. Each platform must pass maturity levels and the acceptance checklist in platform-backends.md.
+| Подсистема | Что подтверждено в NSH | Что исследовать для SolidJS Native |
+|---|---|---|
+| Core/tree | Engine-owned shadow tree, commit boundary, typed internal operations | Transaction model, tree invariants, node lifecycle and recovery |
+| Batching | One commit produces ordered MountBatch; one platform dispatch/hop per commit on documented backends | Atomic application, coalescing, snapshot recovery and back-pressure |
+| Layout | Taffy behind NSH-specific LayoutTree, custom measurement, cache and dirty-boundary relayout | Taffy adapter structure, measure contract, cache keys, invalidation boundaries |
+| Text | Engine-side prepare/measure/layout; platform text engines; immutable result passed for drawing | Text model, shaping result DTOs, font fallback, measurement caching and hit testing |
+| Windows renderer | Retained NshView tree drawn to Direct2D flip-model swap chain; ordinary nodes do not require one HWND each | Retained drawing, clipping, z-order, transforms, partial invalidation, device loss |
+| Windows editable text | Windowless RichEdit via ITextServices2/ITextHost2, Direct2D drawing and Windows text-input integration | Native editor host seam, IME, selection, caret, clipboard and lifecycle |
+| Windows accessibility | UI Automation provider tree, semantic properties and supported control patterns | Provider lifetime, semantic mapping, focus and notification behavior |
+| Input/focus | Core hit testing and input decisions, platform event normalization, engine dispatch | Event normalization, pointer capture, gesture arbitration, keyboard routing |
+| Scrolling/animation | Native scroll state/physics and animation/frame coordination | UI-thread animation driver, frame clock, scroll lifecycle without per-frame JS |
+| Apple platforms | UIKit/AppKit and CoreText/Core Animation based integrations | Main-thread ownership, text input, accessibility and view-controller/window lifecycle |
+| Android | Android View/JNI, StaticLayout and Choreographer integration | JNI reference ownership, Activity recreation, density and IME |
+| Linux | GTK 4/GSK/Pango and desktop integration | Main-context ownership, portals, accessibility and packaging |
+| App/runtime services | Native modules, application/window APIs, capabilities, embedding and tooling | Application Bridge, plugin lifecycle, app host, CLI and public embedding contracts |
 
-Minimum parity required before stable release:
+### 3.1. Windows renderer and platform threading
 
-- same logical app model and TSX component API;
-- layout semantics within documented support subset;
-- text rendering and native editing;
-- pointer/touch/keyboard input appropriate to platform;
-- focus and accessibility;
-- images/resources;
-- scroll containers and virtualizable lists;
-- dialogs/overlays/navigation;
-- environment values such as scale, safe area, locale and color scheme;
-- packaging and lifecycle;
-- diagnostics and error reporting.
+Useful source paths:
+- [Windows backend overview](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/docs/dev/windows.md)
+- [Windows platform crate](https://github.com/longbridge/nsh/tree/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows)
+- [Direct2D renderer](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/render.rs)
+- [Retained view model](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/view.rs)
+- [UI Automation provider](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/access/uia.rs)
 
-The exact look may differ according to platform and app styles. The system behavior must feel appropriate to the platform.
+NSH draws its ordinary Windows view tree into a flip-model swap chain with Direct2D. It does not create a child HWND for every ordinary logical node; native components that require their own windows are a separate case. The engine submits mount changes and the Windows window applies queued batches. Device/resource recreation and partial invalidation have platform-specific handling.
 
-## 5. Scope tiers
+Study this as a proven option, not as a binding decision that every SolidJS Native backend must use identical rendering internals.
 
-### Tier 1 — Framework foundation
+### 3.2. Text input is not the same as text rendering
 
-- runtime and bridge;
-- core tree;
-- scheduler;
-- layout;
-- native surface;
-- text and input;
-- events and cleanup;
-- headless testing.
+Useful source paths:
+- [NSH text architecture](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/docs/dev/text.md)
+- [Windows text shaping](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/text.rs)
+- [Windows text input host](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/text_input.rs)
+- [Windowless RichEdit host](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/richedit.rs)
 
-Without Tier 1 there is no framework.
+Keep two separate contracts:
+- Text rendering/shaping produces measured and positioned data using platform text engines. On Windows NSH uses DirectWrite and records glyph runs for drawing.
+- Editable text uses a specialized host. On Windows NSH hosts windowless RichEdit text services (`ITextServices2` / `ITextHost2`) and integrates with Windows text input/TSF. This is not a generic renderer primitive and must be evaluated as an input-control implementation.
 
-### Tier 2 — App development essentials
+### 3.3. Accessibility
 
-- View, Text, Image, Button, TextInput, ScrollView;
-- focus, keyboard, accessibility;
-- overlays and navigation;
-- styles, theme tokens and environment;
-- resource loading and async network primitives;
-- application lifecycle;
-- CLI dev/build/run/test.
+Useful source paths:
+- [NSH accessibility API](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/website/docs/accessibility.md)
+- [Windows UI Automation adapter](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/access/uia.rs)
+- [Windows accessibility bridge](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-platform-windows/src/access.rs)
 
-This is the first usable app-development toolkit.
+Study the split between cross-platform semantic metadata and OS-specific exposure. On Windows NSH supplies a UI Automation provider tree; other platforms use their own native accessibility mechanisms. SolidJS Native still needs independent semantics, focus and action contracts plus real screen-reader tests.
 
-### Tier 3 — Full Native Shell alternative
+### 3.4. Layout
 
-- all target platform backends;
-- embedding APIs;
-- HMR and diagnostics;
-- robust package/bundle format;
-- signed dynamic modules;
-- capability security and runtime quotas;
-- native components extension API;
-- broad component behavior foundation;
-- platform parity and regression suite.
+Useful source paths:
+- [NSH layout tree](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-core/src/core/layout_tree.rs)
+- [NSH core text and measurement](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/crates/nsh-core/src/text.rs)
+- [Taffy](https://github.com/DioxusLabs/taffy)
 
-### Tier 4 — Ecosystem and advanced capabilities
+Do not equate using the Taffy crate with implementing a layout system. NSH wraps Taffy in its own tree, measurement callbacks, caching, invalidation and platform-independent geometry model. Study those boundaries and test cases. Implement our own adapter around the currently selected stable Taffy version; do not expose Taffy internal types as the public style API.
 
-- community component libraries;
-- custom native extensions;
-- advanced virtualization;
-- native rich text/editor components;
-- media, maps and platform-specific services;
-- optional GPUI/TUI backends;
-- advanced developer inspector/profiling;
-- optional Rust-authored native components and modules.
+## 4. Reuse workflow
 
-## 6. Explicit non-goals versus NSH
+Every candidate is classified before implementation:
 
-The first stable generation does not promise:
+- **Adopt** — a compatible public component or design can be used substantially as-is after API/version/license review.
+- **Adapt** — preserve a useful algorithm or behavior, but implement it against SolidJS Native contracts and ownership rules.
+- **Reference** — learn from its architecture, tests and trade-offs; do not copy implementation.
+- **Reject** — deliberately do not carry the approach forward; record why.
 
-- drop-in replacement for NSH source files;
-- identical Rust signals/computed/effect API;
-- source-compatible NSH compiler transforms;
-- Rust-only application authoring;
-- every native feature NSH currently exposes;
-- every platform backend at once;
-- superior runtime performance without benchmark evidence.
+A reuse record must include:
+1. subsystem and intended behavior;
+2. classification and decision rationale;
+3. upstream URL and exact commit SHA;
+4. exact file paths and attribution/copyright notices for code reuse;
+5. applicable license and NOTICE obligations;
+6. local modifications and compatibility changes;
+7. tests and platform evidence that validate the adapted behavior.
 
-These limitations do not prevent a full functional alternative. They prevent the team from hiding costly architectural differences behind vague parity claims.
+Repository-level license metadata does not automatically cover bundled third-party code, assets or separately licensed contributions. Inspect file-level provenance and applicable notices before porting.
 
-## 7. License and reuse
+## 5. License and source provenance
 
-The NSH repository is an architectural reference. Do not copy its implementation code or port large code sections until its applicable license and provenance are independently verified. Repository metadata reported a non-standard/NOASSERTION license marker and no root LICENSE file was retrieved in the checked paths.
+The checked NSH repository contains a root [LICENSE-APACHE](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/LICENSE-APACHE), and its workspace manifest declares `license = "Apache-2.0"` ([Cargo.toml](https://github.com/longbridge/nsh/blob/c16a7009674797eda8781076145c696e22144184/Cargo.toml)).
 
-Reusing concepts such as engine/UI thread separation, typed operations, retained tree, Taffy, platform adapters and test boundaries is different from copying source code. For any future code reuse, record source URL, commit, license, copyright notice and modifications in a third-party notices file.
+NSH-authored source covered by Apache-2.0 may be copied or modified subject to that license's requirements, including preserving applicable notices, providing the license, and marking modified files. This is not blanket permission to reuse all content in the repository: inspect the exact file, bundled dependencies, assets and additional notices before a port. This note is engineering provenance guidance, not legal advice.
 
-## 8. Release definition
-
-A public release may claim:
-
-- experimental: feature exists but API/platform semantics may change;
-- preview: documented feature works on named targets with known limitations;
-- stable: public contract versioned, automated tests pass, upgrade policy exists, platform acceptance checklist completed.
-
-A global "stable" badge is not allowed while a target platform is only experimental. Publish target-specific status.
+No NSH source code is copied into SolidJS Native by this reference document or the other documentation changes in this update.

@@ -74,7 +74,7 @@ NativeNode — lightweight adapter handle, а не копия всего Rust No
 - parent wrapper;
 - ordered child wrappers;
 - local property metadata только там, где это необходимо renderer adapter;
-- runtime/session generation.
+- SurfaceId and SessionGeneration, used to reject stale or foreign-session handles.
 
 Запрещено держать в NativeNode:
 - layout frames;
@@ -111,17 +111,17 @@ NativeNode — lightweight adapter handle, а не копия всего Rust No
 
 ## 3. Stable node IDs
 
-В начальной реализации допускается monotonic integer ID на одну surface session.
+В M1 handle состоит из `SurfaceId + SessionGeneration + NodeId`. SessionGeneration меняется при создании новой runtime session для Surface и защищает от delayed events/batches предыдущего жизненного цикла.
 
 Требования:
-- ID не повторяется в рамках runtime session.
-- ID валиден только в пределах SurfaceId + SessionGeneration.
-- ID не превышает Number.MAX_SAFE_INTEGER, если передаётся в JS как Number.
-- Rust отклоняет дублирование, unknown references и stale references.
-- Removal permanently invalidates ID.
-- ID никогда не переиспользуется внутри той же session.
+- `NodeId` — monotonic integer в пределах одной session.
+- `NodeId` не повторяется и не переиспользуется внутри session; удаление навсегда инвалидирует ID.
+- Полный handle валиден только в пределах соответствующих `SurfaceId + SessionGeneration`.
+- `NodeId` не превышает `Number.MAX_SAFE_INTEGER`, если передаётся в JS как Number.
+- Rust отклоняет дублирование, unknown references, stale references и handles другой Surface/session.
+- Batch header и callback/event metadata несут достаточно данных, чтобы engine мог проверить Surface/session scope.
 
-Дальнейший вариант — generation-aware packed handle. Он должен вводиться до появления reuse, recycling или virtualization, а не после появления трудно воспроизводимых use-after-free ошибок.
+Per-node generation-aware packed handle понадобится только перед введением повторного использования NodeId (например, slot recycling). До появления такой возможности ID остаётся monotonic и never-reused внутри session; это проще и исключает ABA/use-after-free сценарии без усложнения первого wire format.
 
 ## 4. Typed host batch protocol
 
@@ -145,7 +145,8 @@ Batch header:
 - magic;
 - protocol version major/minor;
 - flags;
-- surface/session ID;
+- SurfaceId;
+- SessionGeneration;
 - transaction ID;
 - expected tree revision;
 - operation count;

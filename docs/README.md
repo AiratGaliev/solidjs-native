@@ -1,14 +1,18 @@
 # Documentation index
 
-Документация описывает SolidJS Native как полноценный native UI runtime/framework, целевой архитектурный аналог NSH с настоящим upstream SolidJS.
+Документация описывает SolidJS Native как самостоятельный Tauri-class application framework для настоящего upstream SolidJS. Роли источников разделены: Tauri 2 задаёт продуктовый scope; NSH — основной native implementation и platform-rendering reference; GPUI Kit/GPUI Shell — comparative desktop UI and QuickJS-host reference; Servo Stylo — reference для CSS implementation.
 
 ## Start here
 
-1. [Target architecture](architecture/target-architecture.md) — целевая система, слои, ownership, threading, tree, protocol, layout, rendering, security, performance.
-2. [SolidJS runtime and host protocol](architecture/solidjs-runtime-and-host-protocol.md) — Universal renderer, QuickJS integration, typed batched bridge, scheduler, callback lifecycle and tests.
-3. [Platform backends](architecture/platform-backends.md) — Windows/macOS/Linux/iOS/Android/Web, rendering strategy, embedding and platform acceptance.
-4. [NSH feature parity](architecture/nsh-feature-parity.md) — что входит в понятие полноценной замены, parity mapping и release scope.
-5. [Implementation roadmap](roadmap.md) — milestones M0-M11, work packages and acceptance criteria.
+1. [Tauri replacement scope](architecture/tauri-replacement-scope.md) — product requirements, application framework capabilities and Codogma migration gate.
+2. [Target architecture](architecture/target-architecture.md) — system layers, ownership, threading, tree, protocols, layout, rendering, security and performance.
+3. [Architecture reuse and dependency adoption map](architecture/dependency-adoption.md) — final reference roles, selected components, prototype candidates and reuse boundaries.
+4. [Styling, CSS and Tailwind CSS](architecture/styling-and-css.md) — shared styling model, native CSS compatibility profile, Tailwind build integration and Stylo adapter.
+5. [SolidJS runtime and host protocol](architecture/solidjs-runtime-and-host-protocol.md) — Universal renderer, QuickJS integration, typed batched UI bridge, scheduler and callback lifecycle.
+6. [Platform backends](architecture/platform-backends.md) — Windows/macOS/Linux/iOS/Android/Web, native rendering, application host, embedding and platform acceptance.
+7. [GPUI Kit comparison](architecture/gpui-kit-comparison.md) — closest adjacent desktop framework, GPUI Shell runtime and reuse decisions.
+8. [NSH implementation reference map](architecture/nsh-feature-parity.md) — concrete upstream native implementations, architectural differences and reuse rules.
+9. [Implementation roadmap](roadmap.md) — milestones M0-M16, work packages and acceptance criteria.
 
 ## Engineering policy
 
@@ -23,6 +27,8 @@
 - [ADR-0005: Taffy and hybrid native rendering](decisions/0005-layout-and-native-rendering.md)
 - [ADR-0006: TSX-first application model and Web backend](decisions/0006-application-model-and-web.md)
 - [ADR-0007: Capability security for dynamic modules](decisions/0007-capabilities-and-runtime-packages.md)
+- [ADR-0008: Tauri-class application framework for Codogma](decisions/0008-tauri-class-application-framework.md)
+- [ADR-0009: CSS and Tailwind CSS for native styling](decisions/0009-css-and-tailwind-native-styling.md)
 
 ## Reference material
 

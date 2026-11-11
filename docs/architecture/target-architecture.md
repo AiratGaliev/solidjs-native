@@ -4,13 +4,15 @@
 - Версия документа: 1.0.
 - Дата: 2026-11-10.
 - Кодовая база: текущий прототип M0; спецификация описывает конечную систему и явно отделяет её от уже реализованного.
-- Основной ориентир: Native Shell (NSH), но без копирования его внутренней реализации и без отказа от настоящего SolidJS.
+- Product direction: [ADR-0008 — Tauri-class application framework](../decisions/0008-tauri-class-application-framework.md); styling decision: [ADR-0009 — CSS and Tailwind CSS](../decisions/0009-css-and-tailwind-native-styling.md). Tauri 2 is the product-level reference; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop and QuickJS-host reference; Servo Stylo is a CSS implementation reference only. Binding reuse boundaries are consolidated in [Architecture reuse and dependency adoption map](dependency-adoption.md). See [Tauri replacement scope](tauri-replacement-scope.md), [GPUI Kit comparison](gpui-kit-comparison.md), [NSH implementation reference map](nsh-feature-parity.md), [Styling, CSS and Tailwind CSS](styling-and-css.md) and [upstream references](../reference/upstream-references.md).
 
 ## 1. Назначение и ожидаемый результат
 
-SolidJS Native — нативный UI runtime и toolkit для создания приложений на TypeScript/TSX с использованием настоящего SolidJS. Один и тот же прикладной код должен запускаться в нативных приложениях Windows, macOS, Linux, iOS и Android, а также в браузере. На нативных платформах UI должен быть встроен в приложение и взаимодействовать с системными окнами, вводом, текстом, доступностью, навигацией, файлами и другими платформенными возможностями без обязательного WebView.
+SolidJS Native — самостоятельный cross-platform application framework и native UI runtime для приложений на TypeScript/TSX с настоящим upstream SolidJS. Он должен стать функциональной альтернативой Tauri 2 в выбранных сценариях Codogma Engine и при этом оставаться устанавливаемым SDK для сторонних SolidJS-приложений. Один application model должен поддерживать native приложения Windows, macOS, Linux, iOS и Android, а также отдельную web target.
 
-Проект должен стать функциональной альтернативой Native Shell, а не демонстрацией SolidJS внутри QuickJS. Конечный результат включает:
+На нативных платформах основной UI рендерится SolidJS Native platform backends, а не системным WebView. Framework предоставляет application lifecycle, управление окнами и системными возможностями, plugin/permission model, CLI, build/package/distribution workflow и embedding API. Web target использует browser JavaScript engine и DOM. Встроенный системный WebView может быть отдельным native component только при подтверждённой продуктовой потребности; он не участвует в рендеринге основного UI и не используется для Phaser preview.
+
+Целью является функциональная замена Tauri 2 для выбранного продуктового scope Codogma, а не API/source/configuration compatibility со всем Tauri ecosystem. Конечный результат включает:
 
 - SolidJS как официальный и единственный JS reactive runtime для TSX-приложений.
 - QuickJS-NG как встраиваемый JS engine для нативных платформ.
@@ -18,11 +20,12 @@ SolidJS Native — нативный UI runtime и toolkit для создани�
 - Нативные backend-адаптеры для системных окон, представлений, текста, ввода и доступности.
 - Отдельный web backend, использующий браузер и его DOM, а не эмуляцию native UI в canvas.
 - Единый компонентный API и типизированные декларации для TypeScript.
+- Привычный CSS authoring и Tailwind CSS с общим API классов/стилей для native и web targets.
 - Инструменты сборки, запуска, тестирования, hot reload и упаковки.
 - Контролируемую загрузку динамических UI-модулей с capability-based security.
 - Встраивание в существующие Rust, Swift, Kotlin, C/C++ и другие host-приложения через стабильные ABI/API adapters.
 
-Проект не должен быть копией исходного кода NSH. NSH используется как архитектурный референс: разделение engine/UI threads, Rust-owned UI tree, пакетирование mount operations, layout через Taffy, платформенные backend-слои, базовые unstyled-компоненты, sandbox и единый CLI.
+Tauri 2 задаёт продуктовый уровень полноты application framework и developer workflow. NSH используется как основной implementation reference для native UI engine и platform subsystems: retained tree, commit/mount pipeline, Taffy integration, platform rendering, text, input, accessibility, embedding и runtime capabilities. Это разные роли референсов; ни один из проектов не является обязательной runtime dependency. См. [NSH implementation reference map](nsh-feature-parity.md) и [upstream references](../reference/upstream-references.md).
 
 ## 2. Главная архитектурная идея
 
@@ -30,7 +33,7 @@ SolidJS Native — нативный UI runtime и toolkit для создани�
 
 1. **SolidJS application runtime.** Выполняет пользовательские компоненты, signals, memos, effects, context, owners, cleanup и обработчики событий.
 2. **Solid Native renderer adapter.** Реализует контракт SolidJS Universal. Он превращает вызовы renderer в host mutations и поддерживает минимальные JS-объекты-обёртки, необходимые SolidJS для обхода дерева.
-3. **Rust UI engine.** Принимает пакет изменений, валидирует его, обновляет единственный authoritative retained tree, вычисляет layout, разрешает ресурсы и формирует mount batch.
+3. **Rust UI engine.** Принимает пакет изменений, валидирует его, обновляет единственный authoritative retained tree, разрешает native styles, вычисляет layout, разрешает ресурсы и формирует mount batch.
 4. **Platform backend.** Применяет mount batch к нативным представлениям и системным API, принимает input и возвращает нормализованные события в engine.
 
 Основное правило владения состоянием:
@@ -59,12 +62,13 @@ SolidJS Native — нативный UI runtime и toolkit для создани�
 - Поддерживать отдельный backend на каждой целевой OS.
 - Поддерживать платформенные функции, не сводя API к наименьшему общему знаменателю.
 - Обеспечить предсказуемую модель версионирования протокола, пакетов и runtime compatibility.
+- Поддерживать CSS authoring и Tailwind CSS для native и web targets с документированным native CSS compatibility profile.
 - Измерять производительность на репрезентативных UI-сценариях, а не заявлять преимущество на основании архитектурных предположений.
 
 ### 3.2. Не является целью первой версии
 
 - Собственный browser engine.
-- Полный CSS layout/rendering engine.
+- Полная реализация browser CSS specification и browser CSS engine на native targets. Native targets обязаны поддерживать определённый CSS/Tailwind compatibility profile; web target использует полноценный browser CSS engine.
 - Совместимость со всем Web Platform API.
 - React compatibility или общий VDOM.
 - Автоматическая конвертация произвольного DOM приложения в native UI.
@@ -131,7 +135,8 @@ Application TSX
 → Host operation batch
 → Rust runtime bridge
 → sn-core retained UI tree
-→ sn-layout / text / resource / accessibility services
+→ sn-style stylesheet/cascade resolution
+→ sn-layout / text / paint / resource / accessibility services
 → MountBatch
 → platform backend
 → OS-native views and APIs
@@ -153,11 +158,15 @@ OS event
 
 - crates/sn-types — общие идентификаторы, units, geometry, error codes и компактные typed values, когда они начнут использоваться несколькими слоями.
 - crates/sn-core — authoritative UI tree, node lifecycle, typed properties, transaction validation, tree invariants, render-independent state.
-- crates/sn-layout — адаптер Taffy, style normalization, dirty propagation, measurement contracts и layout snapshots.
+- crates/sn-layout — адаптер Taffy, layout normalization, dirty propagation, measurement contracts и layout snapshots.
+- crates/sn-style — Stylo adapter (primary prototype), stylesheet artifacts, CSS selector/cascade resolution, theme/custom-property resolution, computed style snapshots and compatibility diagnostics. Stylo style data is a derived sidecar over sn-core::UiTree.
+- logical subsystem sn-render — normalized paint values, resource references and the adapter contract to platform renderers. It does not own platform damage tracking, a generic DisplayList or a GPU abstraction; extract a crate only when a concrete shared implementation and tests stabilize.
+- logical subsystem sn-text — platform font/text measurement, shaping, glyph-run and editable-text contracts; prefer OS text engines initially.
+- logical subsystem sn-accessibility — AccessKit semantic-tree projection, stable ID mapping, incremental updates and action routing.
 - crates/sn-runtime-api — VM-independent contracts для runtime lifecycle, timers, host callbacks и diagnostics; не содержит QuickJS types.
 - crates/sn-runtime-quickjs — QuickJS-NG/rquickjs integration, module loader, JS globals, runtime limits, pending jobs и callback registry.
 - crates/sn-bridge — wire protocol, decoder, validation, transaction application и bridge tests.
-- crates/sn-engine — orchestration: runtime, tasks, input dispatch, commits, layout, resources, frame scheduling и mount batches.
+- crates/sn-engine — orchestration: runtime, tasks, input dispatch, commits, style, layout, resources, frame scheduling и mount batches.
 - crates/sn-platform-api — PlatformHost, MountSink, TextMeasurer, WindowHost, InputSource, Clipboard, dialogs и accessibility contracts.
 - crates/sn-platform-windows — Windows backend.
 - crates/sn-platform-macos — macOS backend.
@@ -178,9 +187,14 @@ A crate is extracted only when it has a stable public contract, independent test
 - sn-types has no dependency on runtime or platform.
 - sn-core depends only on shared types and narrowly selected pure-Rust utilities.
 - sn-layout depends on sn-core abstractions and Taffy; sn-core must not depend on Taffy APIs.
+- sn-style depends on sn-core style/node abstractions and the versioned style artifact format; Stylo is private behind this facade and reads a derived DOM/style-data projection from committed UiTree revisions. sn-style does not own layout or platform painting.
+- sn-accessibility projects committed semantic state into AccessKit and maps AccessKit actions back to engine events; AccessKit types stay private to that subsystem/platform adapters.
+- sn-render owns only normalized paint/resource values that need to cross the engine/platform boundary. Platform backends consume committed tree/layout/style updates and MountBatch, maintain their own retained state, damage tracking and batching, and draw through OS APIs; platform-specific types never enter sn-core or the public API.
+- sn-text owns platform text-measurement/shaping adapters and normalized glyph/text snapshots; native editable text and IME remain PlatformHost services.
+- sn-layout consumes computed layout values from sn-style through stable shared types; sn-style must not depend on Taffy internals.
 - sn-runtime-quickjs depends on sn-runtime-api and the QuickJS binding.
 - sn-bridge depends on shared types and sn-core application contracts; it must not depend on a platform implementation.
-- sn-engine composes core, runtime API, bridge, layout and platform API.
+- sn-engine composes core, runtime API, bridge, style, layout, text, render, accessibility, resources and platform API.
 - platform implementations depend inward on platform API and engine-facing DTOs, never the reverse.
 - solid-native package depends on solid-js and exposes the renderer adapter.
 - sn-core must never import rquickjs, JS values, HWND, AppKit, UIKit, JNI, GTK or winit types.
@@ -294,9 +308,11 @@ Do not use arbitrary strings as an unrestricted instruction language for platfor
 
 ### 8.2. Node identity
 
-Node handles must be stable from creation until removal and unique within a Surface. Initial wire-level IDs may use a monotonically increasing integer with an explicit safe-integer bound, because the adapter must keep the token in a JS value without precision loss. Rust validates the bound and rejects duplicates, stale references and IDs from another surface.
+In M1, a node handle is scoped by the tuple `SurfaceId + SessionGeneration + NodeId`. `SessionGeneration` changes whenever a Surface session is destroyed and recreated, so delayed work from an earlier session is rejected even if a Surface slot is reused.
 
-Before handle reuse is introduced, switch to a generation-aware handle scheme. Reusing an ID without a generation is forbidden because delayed events or MountBatch items could target a newly created node.
+Within one session, `NodeId` is a monotonically increasing integer and is never reused after removal. If it crosses the JS boundary as a Number, it must not exceed `Number.MAX_SAFE_INTEGER`. Rust validates the complete handle and rejects duplicate, stale, foreign-surface and foreign-session references.
+
+Per-node generation bits are not required while IDs are never recycled within a session. If a future implementation introduces node-ID reuse (for example, through slot recycling), it must add a generation to the per-node handle before that reuse is enabled. Reusing an ID without such a generation is forbidden because delayed events or MountBatch items could target a newly created node.
 
 The JS wrapper contains the opaque stable ID and only the minimal parent/children links required by Solid Universal traversal. The wrapper does not contain computed layout, final style, platform frames, accessibility tree or duplicated runtime state.
 
@@ -361,7 +377,8 @@ The initial protocol header should contain:
 - magic bytes;
 - protocol major/minor version;
 - flags;
-- surface/session identifier;
+- SurfaceId;
+- SessionGeneration;
 - transaction sequence;
 - expected base tree revision;
 - operation count;
@@ -445,7 +462,7 @@ Each successful transaction increments the tree revision once. MountBatch carrie
 
 ### 10.1. Layout engine
 
-Taffy is the selected initial layout engine because it implements CSS Block, Flexbox and Grid algorithms as a pure Rust library. It remains an internal dependency behind sn-layout; Solid Native must not expose Taffy-specific types as public app API.
+Taffy 0.15.1 is the selected initial layout prototype because it implements CSS Block, Flexbox and Grid algorithms as a pure Rust library. It remains an internal dependency behind `sn-layout`; Solid Native must not expose Taffy-specific types as public app API. Use a custom-tree adapter over `sn-core::UiTree`, disable default features and enable only the selected algorithms; implement the out-of-flow hooks explicitly for absolute/fixed descendants. `position: sticky` is not implemented and remains unsupported.
 
 ### 10.2. Supported layout model
 
@@ -456,8 +473,9 @@ Start with a deliberately bounded native layout model:
 - Block/stack behavior only where it has a well-defined native meaning.
 - Width/height, min/max constraints, aspect ratio.
 - Padding, margin, border widths and corner radii.
-- Absolute positioning, clipping and overflow.
-- Scroll containers with content and viewport sizes.
+- Static/relative flow and absolute/fixed out-of-flow positioning with explicit containing-block rules; clipping and overflow.
+- `position: sticky`, floats/clear, inline/inline-block formatting, table layout and `display: contents` are outside the initial Taffy 0.15.1 compatibility profile.
+- Scroll containers with content and viewport sizes; platform backend owns gesture handling, kinetic scrolling and committed scroll offsets.
 - Intrinsic size through explicit measurement callbacks.
 
 The API should resemble familiar CSS concepts where semantics are stable, but must not claim full browser CSS compatibility.
@@ -470,12 +488,14 @@ Device scale, font scale, safe-area insets and keyboard insets are environment i
 
 ### 10.4. Style ownership
 
-- JSX props and typed style objects are normalized by the host adapter.
-- Core stores platform-independent computed inputs.
-- sn-layout maps these inputs to Taffy styles.
+- JSX props, `class`/`className` and typed inline style objects are forwarded by the host adapter as typed inputs.
+- Rust `sn-style` owns native stylesheet resources, selector matching, cascade resolution, supported inheritance, custom-property/theme resolution and computed style snapshots. Stylo is the primary prototype implementation behind this facade; its DOM traits and per-node style data are adapted over the committed UiTree and retained in a derived sidecar keyed by UiNodeId.
+- `sn-layout` maps only computed layout properties to Taffy; paint, typography and effects flow to their dedicated services.
 - Layout produces frames, baselines and overflow data.
-- Platform backend receives frames and paint/native properties, not raw arbitrary CSS.
+- Platform backends receive normalized frames and paint/native properties, never arbitrary raw CSS.
 - A theme is an application-level design token layer, not hidden global state in the engine.
+
+CSS and Tailwind support are specified in [Styling, CSS and Tailwind CSS](styling-and-css.md). The web target uses browser CSS; native targets use the documented compatibility profile and a build-time compiled style artifact. Taffy is a layout engine, not a CSS parser, cascade engine or paint engine.
 
 ### 10.5. Incremental layout
 
@@ -516,6 +536,7 @@ Platform engines:
 - Android: Android text APIs such as StaticLayout for measurement/layout and native EditText for editable input.
 - Windows: DirectWrite for shaping/measurement and native input method integration; editable controls may use a dedicated native host component.
 - Linux: Pango and GTK text widgets.
+- Portable font parsing/metrics may evaluate read-fonts/skrifa; HarfBuzz is a candidate for portable shaping only where OS engines do not satisfy a proven requirement. Do not import Servo's complete fonts crate into the native engine.
 - Web: browser text layout and native HTML input/textarea.
 
 The engine thread should prepare immutable text layout snapshots. Platform thread draws or applies those snapshots but does not run arbitrary user JS. When a platform text API is thread-affine, implement an explicit measurement service or asynchronous cache; do not silently call a UI-only API on the engine thread.
@@ -551,6 +572,8 @@ MountBatch is an ordered, immutable description of a committed engine revision. 
 - update scroll viewport/content/offset.
 
 MountBatch must be delta-based. Do not resend an unchanged property or layout frame. Each backend receives the same semantic operations but may translate them into different OS-specific calls.
+
+MountBatch is the platform-resource update contract, not a GPU command buffer or display list. After style, layout, text and resource projections are updated for a committed tree revision, the platform backend applies the batch to its retained platform-side state and paints it through the OS drawing API. This follows NSH: Windows uses Direct2D/DirectWrite; macOS uses AppKit/Core Animation/Core Text; Linux uses GTK/GSK/Pango; iOS and Android use their native view/drawing systems. A backend may coalesce logical nodes into a retained surface and maintain its own batching/damage data, but that representation is private to the backend. sn-core and MountBatch do not own GPU/device resources.
 
 ### 12.3. Idempotency and recovery
 
@@ -608,7 +631,7 @@ Native scrolling must not depend on JS being available every frame. Backend owns
 
 ### 14.4. Accessibility
 
-Accessibility semantics are independent of visual styling and native widget choice. Each semantic node describes role, label, value, hint, state, actions, relationships and reading order. Backend maps this to UIAccessibility, Android AccessibilityNodeInfo, Windows UI Automation, AT-SPI/GTK or browser accessibility tree.
+Accessibility semantics are independent of visual styling and native widget choice. Each semantic node describes role, label, value, hint, state, actions, relationships and reading order. sn-accessibility projects committed UiTree semantics into an AccessKit tree with stable node IDs and incremental updates; platform adapters expose it through UIAccessibility, Android accessibility, Windows UI Automation and AT-SPI/GTK. AccessKit action requests route back through the engine event queue. AccessKit does not replace focus ownership, text editing, selection or IME; advanced rich-text semantics require separate validation.
 
 Accessibility tree must be testable in headless mode. A UI is not considered complete because it is clickable with a mouse.
 
@@ -784,7 +807,7 @@ HMR must release old callback references, subscriptions, timers and resource han
 
 ## 20. Dynamic modules and package security
 
-For NSH-equivalent runtime module delivery, introduce a package format only after stable runtime and host API versions exist.
+For signed, capability-controlled runtime module delivery, introduce a package format only after stable runtime and host API versions exist.
 
 Package contents:
 
@@ -954,3 +977,19 @@ A future implementation or refactor is acceptable only if:
 10. Native text input, focus and accessibility are first-class requirements.
 11. All asynchronous runtime APIs have tests for ordering, cancellation and shutdown.
 12. No feature is marked complete without the matching automated and platform verification.
+
+## 27. Application framework layer
+
+The UI runtime is one part of the product. SolidJS Native must also provide the application-host capabilities needed to replace Tauri 2 in the selected Codogma scenarios. The product requirements and migration gate are defined in [Tauri replacement scope](tauri-replacement-scope.md) and accepted by [ADR-0008](../decisions/0008-tauri-class-application-framework.md).
+
+Keep these contracts separate:
+
+- **UI Host Protocol:** SolidJS Universal renderer mutations into the Rust authoritative UI tree. Defined by ADR-0003.
+- **Application Bridge:** asynchronous, typed/versioned commands and events for native services, plugins and application facilities. It is not the renderer transport.
+- **PlatformApplicationHost:** process-level application lifecycle and OS shell integration such as application identity, activation, menus, tray where supported, shortcuts, notifications and URL/file activation.
+- **PlatformWindowHost:** top-level native window creation, lifecycle, state, title, decorations, focus and close behavior.
+- **PlatformHost / MountSink:** a Surface's attachment to a native host view and application of renderer MountBatch data. They must not absorb process-level application responsibilities.
+
+The application framework must additionally define plugin contracts, capability/permission enforcement at Rust service boundaries, CLI/dev workflow, packaging, signing, update/recovery and public embedding/versioning. These are target capabilities, not current implementation claims. Their sequencing and acceptance criteria belong to the roadmap milestones M12-M16.
+
+The native renderer remains the primary native application UI. Browser DOM is a separate web target, including Phaser preview in a normal browser session. An OS WebView may exist only as a separately registered native component for another explicit product requirement; it does not change the native renderer contract.

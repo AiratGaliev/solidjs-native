@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: { alias: { "solid-native": rendererEntry } },
   plugins: [solid({ solid: { moduleName: "solid-native", generate: "universal" } })],
   build: {
+    target: "es2020",
     outDir: outputDir,
     emptyOutDir: true,
     lib: {

@@ -1,10 +1,12 @@
 # SolidJS Native
 
-**TSX-first native UI framework powered by the real SolidJS runtime.**
+**TSX-first cross-platform application framework with a native UI runtime powered by upstream SolidJS.**
 
-SolidJS Native is an experimental cross-platform UI runtime being designed as a functional alternative to Native Shell (NSH). The application API is based on SolidJS and TypeScript/TSX. Native runtime, retained UI tree, layout, event orchestration and platform integration are implemented in Rust.
+SolidJS Native is an experimental, standalone cross-platform application framework and native UI runtime. Its product goal is to become a functional Tauri 2 alternative for Codogma Engine and other SolidJS/TypeScript applications. The application API is based on upstream SolidJS and TypeScript/TSX; the native runtime, retained UI tree, application host and platform integration are implemented in Rust.
 
-This is not a WebView wrapper. Native targets are designed to use platform backends; the Web target uses the browser's JavaScript engine and DOM.
+Native application UI uses NSH-inspired platform renderers and native text, input and accessibility services. The Web target is a separate browser deployment using the browser's JavaScript engine and DOM. Browser-only workflows, including Phaser preview, run in a normal browser and do not add a browser engine to the native runtime.
+
+Tauri 2 is the product-level reference for application-framework completeness; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop UI and QuickJS host reference; Servo Stylo is a CSS implementation reference.
 
 ## Product direction
 
@@ -12,9 +14,10 @@ This is not a WebView wrapper. Native targets are designed to use platform backe
 - solid-js/universal is the official custom-renderer boundary.
 - QuickJS-NG via rquickjs is the initial embedded JS engine for native targets.
 - Rust owns the authoritative retained UI tree, host transaction pipeline, layout inputs, event metadata and native resource orchestration.
-- Platform backends own OS windows/views, text input, accessibility, native resources and UI-thread lifecycle.
+- Platform backends own OS window/view resources, text input, accessibility and UI-thread lifecycle; the application host owns process-level lifecycle and top-level window management.
 - Renderer mutations are designed to cross the JS/Rust boundary as typed, versioned batches.
-- Layout is planned through a Taffy adapter.
+- Layout is planned through a Taffy adapter; native CSS resolution is a separate `sn-style` subsystem.
+- CSS and Tailwind CSS are first-class authoring requirements; native targets use a documented CSS compatibility profile while the web target uses browser CSS.
 - Native UI thread must never synchronously execute user JS.
 - Web uses a separate browser-native renderer rather than QuickJS.
 
@@ -26,10 +29,14 @@ Dependency versions follow the [latest-stable dependency policy](docs/dependency
 
 Key documents:
 
+- [Tauri replacement scope](docs/architecture/tauri-replacement-scope.md)
 - [Target architecture](docs/architecture/target-architecture.md)
+- [Architecture reuse and dependency adoption map](docs/architecture/dependency-adoption.md)
+- [Styling, CSS and Tailwind CSS](docs/architecture/styling-and-css.md)
 - [SolidJS runtime and host protocol](docs/architecture/solidjs-runtime-and-host-protocol.md)
 - [Platform backends](docs/architecture/platform-backends.md)
-- [NSH feature parity](docs/architecture/nsh-feature-parity.md)
+- [GPUI Kit comparison](docs/architecture/gpui-kit-comparison.md)
+- [NSH implementation reference map](docs/architecture/nsh-feature-parity.md)
 - [Implementation roadmap](docs/roadmap.md)
 - [Architecture decisions](docs/decisions/)
 
@@ -99,6 +106,6 @@ Project license and third-party dependency notices must be finalized before dist
 - [ ] Make Rust `UiTree` authoritative by applying renderer batches atomically.
 - [ ] Add integration coverage for renderer mount, signal-driven updates, node moves/removal and event dispatch.
 - [ ] Implement deterministic QuickJS job scheduling, Promise jobs, timers and runtime cleanup.
-- [ ] Add Taffy-backed layout and a deterministic headless mount pipeline.
+- [ ] Add Taffy-backed layout, native CSS/Tailwind compilation and a deterministic headless style/mount pipeline.
 
 See the [implementation roadmap](docs/roadmap.md) for the complete milestones and acceptance criteria.

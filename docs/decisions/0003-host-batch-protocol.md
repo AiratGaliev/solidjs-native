@@ -13,7 +13,10 @@ At the same time, arbitrary JS objects and closures must not become Rust core va
 
 - Host mutations are accumulated by the Solid Native adapter for the current JS task/commit boundary.
 - Production transport is a typed, versioned binary batch backed by an ArrayBuffer/byte span.
+- The Rust binding copies or validates the payload into owned Rust memory before returning control to JavaScript; it must not retain a borrowed ArrayBuffer/TypedArray pointer across JS execution, buffer detachment/resizing or GC.
 - The protocol has an explicit header, operation count, payload size, string/value sections and version fields.
+- Node handles are scoped to `SurfaceId + SessionGeneration + NodeId`. `SessionGeneration` fences delayed work from a previous Surface session; `NodeId` is monotonic and never reused within that session.
+- Per-node generation is required before any future node-ID recycling is enabled.
 - Rust validates all ranges, IDs, value types and operation ordering before commit.
 - Rust applies the batch atomically and increments the tree revision once.
 - JS functions remain in a QuickJS callback registry and are referenced by opaque handler IDs only.
@@ -33,7 +36,7 @@ CreateElement, CreateText, ReplaceText, SetProperty, RemoveProperty, InsertNode,
 ## Rejected alternatives
 
 - JSON per operation: rejected for production due to allocations, parsing and weak typing.
-- Raw pointers to JS heap memory: rejected because lifetime and mutability cannot be safely guaranteed.
+- Raw pointers to JS heap memory or retained ArrayBuffer backing slices: rejected because JS can detach/reallocate buffers and the borrowed lifetime cannot extend beyond a validated binding call.
 - Direct JS function serialization: impossible and conceptually invalid; callbacks remain VM-owned.
 - Unbatched FFI call per property: rejected as the default due to avoidable boundary overhead.
 
