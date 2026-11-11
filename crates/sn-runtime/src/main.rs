@@ -16,7 +16,7 @@ fn report_quickjs_exception(ctx: &rquickjs::Ctx<'_>, error: &rquickjs::Error) {
                 .unwrap_or_else(|| "JavaScript Error without a message".to_owned());
             eprintln!("QuickJS exception: {message}");
             if let Some(stack) = exception.stack() {
-                eprintln!("QuickJS stack:\\n{stack}");
+                eprintln!("QuickJS stack:\n{stack}");
             }
         }
         Err(_) => eprintln!("QuickJS raised a non-Error JavaScript value"),
