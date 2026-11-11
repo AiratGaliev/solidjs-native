@@ -4,8 +4,8 @@
 - Upstream: https://github.com/longbridge/nsh
 - Pinned source snapshot: [c16a7009674797eda8781076145c696e22144184](https://github.com/longbridge/nsh/commit/c16a7009674797eda8781076145c696e22144184), observed as the `main` branch head on 2026-11-10.
 - Проверка upstream-документации и исходников: 2026-11-10.
-- Product direction: [ADR-0008](../decisions/0008-tauri-class-application-framework.md).
-- Tauri-class application scope: [Tauri replacement scope](tauri-replacement-scope.md).
+- Product direction: [ADR-0008](../decisions/0008-standalone-application-framework.md).
+- Application framework scope: [Application framework scope](application-framework.md).
 - Link catalog and provenance rules: [Upstream references](../reference/upstream-references.md).
 - Consolidated dependency decisions: [Architecture Reuse and Dependency Adoption Map](dependency-adoption.md).
 
@@ -21,7 +21,7 @@ NSH — основной implementation reference для native UI subsystems So
 - accessibility semantic tree и системные accessibility providers;
 - application/window integration, embedding, runtime packages, tooling и capability enforcement.
 
-NSH **не является продуктовой целью SolidJS Native**. Продуктовая цель — самостоятельный Tauri-class application framework, способный заменить Tauri 2 в выбранных сценариях Codogma Engine и использоваться сторонними SolidJS/TypeScript приложениями. См. [Tauri replacement scope](tauri-replacement-scope.md).
+NSH **не является продуктовой целью SolidJS Native**. Продуктовая цель — самостоятельный cross-platform application framework и SDK для SolidJS/TypeScript приложений. Tauri 2 — только внешний референс для изучения архитектуры и developer workflow. См. [Application framework scope](application-framework.md).
 
 NSH is not an obligatory runtime dependency and does not define SolidJS Native's public API names, package format or version baseline.
 

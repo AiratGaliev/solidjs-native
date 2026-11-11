@@ -10,7 +10,10 @@
     "smoke": "pnpm build && cargo run --locked -p sn-runtime -- dist/solid-native-demo.js",
     "typecheck": "tsc --noEmit",
     "test:rust": "cargo test --workspace --locked",
-    "check": "pnpm typecheck && pnpm build && cargo test --workspace --locked"
+    "format:rust:check": "cargo fmt --all -- --check",
+    "lint:rust": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+    "check:rust": "pnpm format:rust:check && pnpm lint:rust && pnpm test:rust",
+    "check": "pnpm typecheck && pnpm build && pnpm check:rust"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

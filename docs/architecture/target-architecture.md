@@ -4,15 +4,15 @@
 - Версия документа: 1.0.
 - Дата: 2026-11-10.
 - Кодовая база: текущий прототип M0; спецификация описывает конечную систему и явно отделяет её от уже реализованного.
-- Product direction: [ADR-0008 — Tauri-class application framework](../decisions/0008-tauri-class-application-framework.md); styling decision: [ADR-0009 — CSS and Tailwind CSS](../decisions/0009-css-and-tailwind-native-styling.md). Tauri 2 is the product-level reference; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop and QuickJS-host reference; Servo Stylo is a CSS implementation reference only. Binding reuse boundaries are consolidated in [Architecture reuse and dependency adoption map](dependency-adoption.md). See [Tauri replacement scope](tauri-replacement-scope.md), [GPUI Kit comparison](gpui-kit-comparison.md), [NSH implementation reference map](nsh-feature-parity.md), [Styling, CSS and Tailwind CSS](styling-and-css.md) and [upstream references](../reference/upstream-references.md).
+- Product direction: [ADR-0008 — Standalone cross-platform application framework](../decisions/0008-standalone-application-framework.md); styling decision: [ADR-0009 — CSS and Tailwind CSS](../decisions/0009-css-and-tailwind-native-styling.md). Tauri 2 is a non-binding external reference for application-framework architecture and developer workflows; NSH is the primary native implementation and platform-rendering reference; GPUI Kit/GPUI Shell is the comparative desktop and QuickJS-host reference; Servo Stylo is a CSS implementation reference only. Binding reuse boundaries are consolidated in [Architecture reuse and dependency adoption map](dependency-adoption.md). See [Application framework scope](application-framework.md), [GPUI Kit comparison](gpui-kit-comparison.md), [NSH implementation reference map](nsh-feature-parity.md), [Styling, CSS and Tailwind CSS](styling-and-css.md) and [upstream references](../reference/upstream-references.md).
 
 ## 1. Назначение и ожидаемый результат
 
-SolidJS Native — самостоятельный cross-platform application framework и native UI runtime для приложений на TypeScript/TSX с настоящим upstream SolidJS. Он должен стать функциональной альтернативой Tauri 2 в выбранных сценариях Codogma Engine и при этом оставаться устанавливаемым SDK для сторонних SolidJS-приложений. Один application model должен поддерживать native приложения Windows, macOS, Linux, iOS и Android, а также отдельную web target.
+SolidJS Native — самостоятельный cross-platform application framework и native UI runtime для приложений на TypeScript/TSX с настоящим upstream SolidJS. Framework развивается как самостоятельный продукт и внешний SDK для сторонних SolidJS-приложений; Tauri 2 служит только референсом для изучения решений в application-framework architecture и developer workflow. Один application model должен поддерживать native приложения Windows, macOS, Linux, iOS и Android, а также отдельную web target.
 
-На нативных платформах основной UI рендерится SolidJS Native platform backends, а не системным WebView. Framework предоставляет application lifecycle, управление окнами и системными возможностями, plugin/permission model, CLI, build/package/distribution workflow и embedding API. Web target использует browser JavaScript engine и DOM. Встроенный системный WebView может быть отдельным native component только при подтверждённой продуктовой потребности; он не участвует в рендеринге основного UI и не используется для Phaser preview.
+На нативных платформах основной UI рендерится SolidJS Native platform backends, а не системным WebView. Framework предоставляет application lifecycle, управление окнами и системными возможностями, plugin/permission model, CLI, build/package/distribution workflow и embedding API. Web target использует browser JavaScript engine и DOM. Встроенный системный WebView может быть отдельным native component только при подтверждённой продуктовой потребности; он не участвует в рендеринге основного UI .
 
-Целью является функциональная замена Tauri 2 для выбранного продуктового scope Codogma, а не API/source/configuration compatibility со всем Tauri ecosystem. Конечный результат включает:
+Цель и приоритеты SolidJS Native определяются собственными требованиями framework, поддерживаемых платформ, безопасности и потребителей. Tauri 2 не задаёт обязательный feature set, API/source/configuration compatibility или критерий успеха. Конечный результат включает:
 
 - SolidJS как официальный и единственный JS reactive runtime для TSX-приложений.
 - QuickJS-NG как встраиваемый JS engine для нативных платформ.
@@ -25,7 +25,7 @@ SolidJS Native — самостоятельный cross-platform application fra
 - Контролируемую загрузку динамических UI-модулей с capability-based security.
 - Встраивание в существующие Rust, Swift, Kotlin, C/C++ и другие host-приложения через стабильные ABI/API adapters.
 
-Tauri 2 задаёт продуктовый уровень полноты application framework и developer workflow. NSH используется как основной implementation reference для native UI engine и platform subsystems: retained tree, commit/mount pipeline, Taffy integration, platform rendering, text, input, accessibility, embedding и runtime capabilities. Это разные роли референсов; ни один из проектов не является обязательной runtime dependency. См. [NSH implementation reference map](nsh-feature-parity.md) и [upstream references](../reference/upstream-references.md).
+Tauri 2 используется только как внешний референс для изучения application-framework capabilities и developer workflow. NSH используется как основной implementation reference для native UI engine и platform subsystems: retained tree, commit/mount pipeline, Taffy integration, platform rendering, text, input, accessibility, embedding и runtime capabilities. Это разные роли референсов; ни один из проектов не является обязательной runtime dependency. См. [NSH implementation reference map](nsh-feature-parity.md) и [upstream references](../reference/upstream-references.md).
 
 ## 2. Главная архитектурная идея
 
@@ -980,7 +980,7 @@ A future implementation or refactor is acceptable only if:
 
 ## 27. Application framework layer
 
-The UI runtime is one part of the product. SolidJS Native must also provide the application-host capabilities needed to replace Tauri 2 in the selected Codogma scenarios. The product requirements and migration gate are defined in [Tauri replacement scope](tauri-replacement-scope.md) and accepted by [ADR-0008](../decisions/0008-tauri-class-application-framework.md).
+The UI runtime is one part of the framework. SolidJS Native also provides application-host capabilities defined by its own framework requirements. These contracts are specified in [Application Framework Scope](application-framework.md) and accepted by [ADR-0008](../decisions/0008-standalone-application-framework.md). Tauri 2 remains an external study reference; SolidJS Native does not target one-to-one feature parity or API compatibility with it.
 
 Keep these contracts separate:
 
@@ -992,4 +992,4 @@ Keep these contracts separate:
 
 The application framework must additionally define plugin contracts, capability/permission enforcement at Rust service boundaries, CLI/dev workflow, packaging, signing, update/recovery and public embedding/versioning. These are target capabilities, not current implementation claims. Their sequencing and acceptance criteria belong to the roadmap milestones M12-M16.
 
-The native renderer remains the primary native application UI. Browser DOM is a separate web target, including Phaser preview in a normal browser session. An OS WebView may exist only as a separately registered native component for another explicit product requirement; it does not change the native renderer contract.
+The native renderer remains the primary native application UI. Browser DOM is a separate Web target for browser-only workloads in a normal browser session. An OS WebView may exist only as a separately registered native component for another explicit product requirement; it does not change the native renderer contract.

@@ -8,7 +8,7 @@
 
 | Project / component | Role in SolidJS Native | Reuse decision |
 |---|---|---|
-| Tauri 2 | Product-level completeness: app lifecycle, windows, menus, plugins, permissions, CLI, packaging, updates and developer workflow | Reference; do not use its WebView as our native UI renderer |
+| Tauri 2 | External study reference for application-framework architecture, capability areas and developer workflows | Reference only; not a product target, parity checklist or compatibility target |
 | Upstream SolidJS + Universal | Application reactivity, ownership and official custom-renderer contract | Adopt; keep real SolidJS and TSX |
 | QuickJS-NG + rquickjs | Embedded JavaScript runtime for native targets | Adopted in current M0 prototype; isolate behind runtime API |
 | Native Shell (NSH) | Primary native implementation reference: retained tree, commit batching, per-platform backends, text/input/accessibility and embedding | Adapt architectural patterns; do not port its runtime wholesale |
@@ -26,7 +26,7 @@
 
 The single consolidated decision, including ownership boundaries and prototype gates, is [Architecture Reuse and Dependency Adoption Map](../architecture/dependency-adoption.md).
 
-## Tauri 2 — application-framework scope reference
+## Tauri 2 — application framework reference
 
 - Repository: https://github.com/tauri-apps/tauri
 - Architecture: https://v2.tauri.app/concept/architecture/
@@ -38,7 +38,7 @@ The single consolidated decision, including ownership boundaries and prototype g
 - Updater: https://v2.tauri.app/plugin/updater/
 - Distribution: https://v2.tauri.app/distribute/
 
-Study Tauri for application lifecycle and configuration, windows, menus, tray, shortcuts, commands/events, plugins, capability scopes, CLI, diagnostics, installers, signing and updates. Tauri's main UI is HTML in an OS WebView. SolidJS Native instead targets a native retained UI on native platforms; Tauri is not our native renderer and its IPC format is not our renderer protocol.
+Study Tauri as one example of an established application framework: examine its lifecycle, configuration, windows, menus, tray, shortcuts, commands/events, plugins, capability scopes, CLI, diagnostics, installers, signing and updates. Use those findings to inform independent engineering decisions. Tauri is not a product target, a required feature set, a dependency or an API compatibility target for SolidJS Native. Its WebView frontend and IPC contracts are not adopted as the native UI renderer or UI Host Protocol.
 
 ## GPUI Kit / GPUI Shell — desktop and QuickJS host reference
 
@@ -87,7 +87,7 @@ Do not copy NSH's Rust-native reactive graph, JSX compiler or runtime as the app
 
 Stylo is relevant as an implementation reference for CSS selector matching, cascade, computed values, custom properties and style invalidation. The candidate integration is limited to sn-style: provide a read-only DOM facade over committed sn-core::UiTree state, store Stylo style data in a sidecar keyed by stable UiNodeId, and normalize computed values into project-owned DTOs for layout and platform rendering.
 
-Servo is not selected as an embedded browser, native renderer, compositor or runtime dependency. Do not adopt its browser layout/paint pipeline, embedding/event-loop integration or browser process topology. Phaser preview is a separate Web target executed in a normal browser session.
+Servo is not selected as an embedded browser, native renderer, compositor or runtime dependency. Do not adopt its browser layout/paint pipeline, embedding/event-loop integration or browser process topology. Browser-only workloads use the separate Web target and execute in a normal browser session.
 
 Stylo 0.18.0's `style/Cargo.toml` enables the `servo` feature by default. That feature pulls additional browser-oriented crates/features including `encoding_rs`, `web_atoms`, `mime`, `url`, `string_cache`, `stylo_atoms` and serialization support; the `gecko` path additionally brings bindgen/Gecko integration. The style crate does not declare a `rust-version`, so MSRV cannot be inferred from its version or Servo workspace alone. The M3 prototype must inspect the full resolved graph/build scripts, test whether `default-features = false` is viable for our adapter, and avoid enabling Gecko-only features. Stylo adoption remains subject to a clean build, supported target platforms, API stability, MPL-2.0 review and Tailwind v4/native-profile conformance. Its integration surface is accepted only if it saves substantial standards-engine work and can be isolated behind `sn-style`.
 

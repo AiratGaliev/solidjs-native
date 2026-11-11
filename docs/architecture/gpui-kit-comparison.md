@@ -3,8 +3,8 @@
 - Статус: comparative engineering reference; not a dependency decision.
 - Upstream: https://github.com/longbridge/gpui-kit
 - Pinned source snapshot: [6808964c3a5e0ef970e47b696e8a800575cb21a7](https://github.com/longbridge/gpui-kit/commit/6808964c3a5e0ef970e47b696e8a800575cb21a7), observed as `main` head on 2026-11-10.
-- Product direction: [ADR-0008](../decisions/0008-tauri-class-application-framework.md).
-- Application scope: [Tauri replacement scope](tauri-replacement-scope.md).
+- Product direction: [ADR-0008](../decisions/0008-standalone-application-framework.md).
+- Application scope: [Application framework scope](application-framework.md).
 - Related native architecture: [NSH implementation reference and reuse map](nsh-feature-parity.md).
 - Consolidated dependency decisions: [Architecture Reuse and Dependency Adoption Map](dependency-adoption.md).
 
