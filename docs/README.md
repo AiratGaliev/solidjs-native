@@ -16,6 +16,7 @@
 
 ## Engineering policy
 
+- [SolidJS Native tasks and project planning in Linear](https://linear.app/solidjs-native) — authoritative backlog, priorities, milestones, dependencies and acceptance criteria.
 - [Development workflow and GitHub CI policy](development-workflow.md)
 - [Dependency policy and current stable version baseline](dependency-policy.md)
 

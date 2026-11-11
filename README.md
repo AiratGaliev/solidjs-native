@@ -94,6 +94,10 @@ See [Development Workflow and GitHub CI Policy](docs/development-workflow.md), [
 
 `pnpm check` is the fast gate (typecheck, build, Rust formatting, Clippy and workspace tests). `pnpm smoke` is the current embedded-runtime integration acceptance and runs in the promotion workflow.
 
+## Project tasks and Linear
+
+The authoritative task backlog, priorities, milestones, dependencies and acceptance criteria for SolidJS Native are maintained in the [SolidJS Native Linear workspace](https://linear.app/solidjs-native). Before starting work, find the relevant Linear issue and follow its current scope and acceptance criteria. Use Linear for project tasks rather than GitHub Issues; GitHub is used for source control, pull requests, code review and CI. Link every project-work PR to its corresponding Linear issue.
+
 ## Architectural invariants
 
 1. Do not introduce a second reactive graph in Rust.

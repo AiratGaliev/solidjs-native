@@ -97,14 +97,16 @@ The `pnpm check` command is the single fast gate and includes:
 
 Run focused package/test commands while iterating. Before PR, run the complete relevant fast gate and record any omitted checks.
 
-## 5. Linear issue hygiene
+## 5. Linear project and issue hygiene
 
-- Every implementation PR links a Linear issue in the SolidJS Native project.
-- Issues must describe the outcome, constraints, dependencies, test plan and measurable acceptance criteria.
+[Linear](https://linear.app/solidjs-native) is the source of truth for SolidJS Native project tasks and planning. Use it to find the current backlog, priorities, milestones, dependencies, issue status and acceptance criteria before starting work. Do not treat GitHub Issues as the project task backlog; GitHub is used for repository history, pull requests, code review and CI.
+
+- Every implementation, documentation or maintenance PR for project work must link the corresponding Linear issue from the SolidJS Native workspace.
+- An issue must describe the outcome, constraints, dependencies, test plan and measurable acceptance criteria. Work against the current issue scope; do not rely on an outdated chat summary or an unlinked task description.
 - Use parent issues for milestone outcomes and child issues for independently verifiable work packages.
 - Update issue status from observed work state only. `Done` means the issue's DoD is satisfied, not merely that a PR was opened or code compiled.
-- Record follow-up defects as separate issues; do not silently expand scope.
-- Link PRs, commits and test evidence to the issue.
+- Record follow-up defects as separate Linear issues; do not silently expand scope.
+- Link PRs, commits and test evidence to the Linear issue.
 
 ## 6. Definition of Ready
 
