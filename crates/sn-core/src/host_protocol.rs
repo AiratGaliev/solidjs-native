@@ -5,6 +5,7 @@ pub const HEADER_SIZE: usize = 64;
 pub const MAX_BATCH_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_OPERATIONS: usize = 65_535;
 pub const MAX_STRING_BYTES: usize = 1024 * 1024;
+pub const MAX_DECODED_STRING_BYTES: usize = MAX_BATCH_BYTES;
 const MAGIC: &[u8; 4] = b"SNHB";
 const PROTOCOL_MAJOR: u16 = 1;
 const PROTOCOL_MINOR: u16 = 0;
@@ -115,6 +116,8 @@ pub enum ProtocolError {
     ReservedBits,
     #[error("invalid string reference")]
     InvalidStringReference,
+    #[error("decoded strings exceed the per-batch memory budget")]
+    DecodedStringBudgetExceeded,
     #[error("string is not valid UTF-8")]
     InvalidUtf8,
     #[error("numeric values must be finite")]
@@ -195,6 +198,7 @@ pub fn decode_batch(bytes: &[u8]) -> Result<HostBatch, ProtocolError> {
         return Err(ProtocolError::InvalidStringArena);
     }
     let mut cursor = HEADER_SIZE;
+    let mut decoded_string_bytes = 0usize;
     let mut operations = Vec::with_capacity(operation_count);
     for _ in 0..operation_count {
         let (opcode, record) = next_record(bytes, &mut cursor, string_offset)?;
@@ -204,6 +208,7 @@ pub fn decode_batch(bytes: &[u8]) -> Result<HostBatch, ProtocolError> {
             bytes,
             string_offset,
             string_length,
+            &mut decoded_string_bytes,
         )?);
     }
     if cursor != string_offset {
@@ -259,33 +264,34 @@ fn decode_operation(
     bytes: &[u8],
     arena_offset: usize,
     arena_length: usize,
+    decoded_string_bytes: &mut usize,
 ) -> Result<HostOperation, ProtocolError> {
     match opcode {
         1 => {
             expect_size(record, 24)?;
             Ok(HostOperation::CreateElement {
                 id: read_node_id(record, 8)?,
-                tag: read_string_ref(record, 16, bytes, arena_offset, arena_length)?,
+                tag: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
             })
         }
         2 => {
             expect_size(record, 24)?;
             Ok(HostOperation::CreateText {
                 id: read_node_id(record, 8)?,
-                text: read_string_ref(record, 16, bytes, arena_offset, arena_length)?,
+                text: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
             })
         }
         3 => {
             expect_size(record, 24)?;
             Ok(HostOperation::ReplaceText {
                 id: read_node_id(record, 8)?,
-                text: read_string_ref(record, 16, bytes, arena_offset, arena_length)?,
+                text: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
             })
         }
         4 => {
             expect_size(record, 40)?;
             let id = read_node_id(record, 8)?;
-            let name = read_string_ref(record, 16, bytes, arena_offset, arena_length)?;
+            let name = read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?;
             let kind = record[24];
             if record[25..32].iter().any(|byte| *byte != 0) {
                 return Err(ProtocolError::ReservedBits);
@@ -311,6 +317,7 @@ fn decode_operation(
                         bytes,
                         arena_offset,
                         arena_length,
+                        decoded_string_bytes,
                     )?)
                 }
                 other => return Err(ProtocolError::UnknownValueKind(other)),
@@ -321,7 +328,7 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::RemoveProperty {
                 id: read_node_id(record, 8)?,
-                name: read_string_ref(record, 16, bytes, arena_offset, arena_length)?,
+                name: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
             })
         }
         6 => {
@@ -349,7 +356,7 @@ fn decode_operation(
         8 => {
             expect_size(record, 32)?;
             let id = read_node_id(record, 8)?;
-            let event = read_string_ref(record, 16, bytes, arena_offset, arena_length)?;
+            let event = read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?;
             let handler = read_u32(record, 24)?;
             if read_u32(record, 28)? != 0 {
                 return Err(ProtocolError::ReservedBits);
@@ -367,13 +374,13 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::UnbindEvent {
                 id: read_node_id(record, 8)?,
-                event: read_string_ref(record, 16, bytes, arena_offset, arena_length)?,
+                event: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
             })
         }
         10 => {
             expect_size(record, 32)?;
             let id = read_node_id(record, 8)?;
-            let name = read_string_ref(record, 16, bytes, arena_offset, arena_length)?;
+            let name = read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?;
             let resource_id = read_u64(record, 24)?;
             if resource_id == 0 {
                 return Err(ProtocolError::InvalidIdentifier);
@@ -388,7 +395,7 @@ fn decode_operation(
             expect_size(record, 24)?;
             Ok(HostOperation::DetachResource {
                 id: read_node_id(record, 8)?,
-                name: read_string_ref(record, 16, bytes, arena_offset, arena_length)?,
+                name: read_string_ref(record, 16, bytes, arena_offset, arena_length, decoded_string_bytes)?,
             })
         }
         other => Err(ProtocolError::UnknownOpcode(other)),
@@ -401,6 +408,7 @@ fn read_string_ref(
     bytes: &[u8],
     arena_offset: usize,
     arena_length: usize,
+    decoded_string_bytes: &mut usize,
 ) -> Result<String, ProtocolError> {
     read_string_at(
         read_u32(record, offset)?,
@@ -408,6 +416,7 @@ fn read_string_ref(
         bytes,
         arena_offset,
         arena_length,
+        decoded_string_bytes,
     )
 }
 
@@ -417,6 +426,7 @@ fn read_string_at(
     bytes: &[u8],
     arena_offset: usize,
     arena_length: usize,
+    decoded_string_bytes: &mut usize,
 ) -> Result<String, ProtocolError> {
     let offset = offset as usize;
     let length = length as usize;
@@ -442,6 +452,13 @@ fn read_string_at(
     if value.contains('\0') {
         return Err(ProtocolError::InvalidStringReference);
     }
+    let decoded_total = decoded_string_bytes
+        .checked_add(length)
+        .ok_or(ProtocolError::DecodedStringBudgetExceeded)?;
+    if decoded_total > MAX_DECODED_STRING_BYTES {
+        return Err(ProtocolError::DecodedStringBudgetExceeded);
+    }
+    *decoded_string_bytes = decoded_total;
     Ok(value.to_owned())
 }
 
@@ -570,6 +587,45 @@ mod tests {
         let mut flags = sample_batch();
         flags[65] = 1;
         assert_eq!(decode_batch(&flags), Err(ProtocolError::ReservedBits));
+    }
+
+    #[test]
+    fn bounds_total_decoded_string_bytes_when_arena_references_are_reused() {
+        let operation_count = MAX_DECODED_STRING_BYTES / 256 + 1;
+        let string_length = 256usize;
+        let string_offset = HEADER_SIZE + operation_count * 24;
+        let total_length = string_offset + string_length;
+        let mut bytes = vec![0u8; total_length];
+
+        bytes[0..4].copy_from_slice(MAGIC);
+        bytes[4..6].copy_from_slice(&PROTOCOL_MAJOR.to_le_bytes());
+        bytes[6..8].copy_from_slice(&PROTOCOL_MINOR.to_le_bytes());
+        bytes[8..10].copy_from_slice(&(HEADER_SIZE as u16).to_le_bytes());
+        bytes[12..20].copy_from_slice(&1u64.to_le_bytes());
+        bytes[20..28].copy_from_slice(&1u64.to_le_bytes());
+        bytes[28..36].copy_from_slice(&1u64.to_le_bytes());
+        bytes[36..44].copy_from_slice(&0u64.to_le_bytes());
+        bytes[44..48].copy_from_slice(&(operation_count as u32).to_le_bytes());
+        bytes[48..52].copy_from_slice(&((total_length - HEADER_SIZE) as u32).to_le_bytes());
+        bytes[52..56].copy_from_slice(&(string_offset as u32).to_le_bytes());
+        bytes[56..60].copy_from_slice(&(string_length as u32).to_le_bytes());
+
+        for index in 0..operation_count {
+            let record_offset = HEADER_SIZE + index * 24;
+            bytes[record_offset] = 1; // CreateElement
+            bytes[record_offset + 4..record_offset + 8].copy_from_slice(&24u32.to_le_bytes());
+            bytes[record_offset + 8..record_offset + 16]
+                .copy_from_slice(&((index as u64) + 1).to_le_bytes());
+            bytes[record_offset + 16..record_offset + 20].copy_from_slice(&0u32.to_le_bytes());
+            bytes[record_offset + 20..record_offset + 24]
+                .copy_from_slice(&(string_length as u32).to_le_bytes());
+        }
+        bytes[string_offset..].fill(b'a');
+
+        assert_eq!(
+            decode_batch(&bytes),
+            Err(ProtocolError::DecodedStringBudgetExceeded)
+        );
     }
 
     #[test]

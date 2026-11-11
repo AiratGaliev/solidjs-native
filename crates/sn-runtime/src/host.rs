@@ -1,4 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, VecDeque},
+    rc::Rc,
+};
 
 use rquickjs::{Ctx, Exception, Function, Object, Persistent, TypedArray};
 
@@ -12,17 +16,22 @@ use sn_core::BatchHeader;
 
 pub type SharedHostState = Rc<RefCell<HostState>>;
 
+const MAX_RETAINED_HEADLESS_COMMITS: usize = 64;
+
 #[derive(Debug, Default)]
 pub struct HeadlessMountSink {
-    commits: Vec<CommitAck>,
+    commits: VecDeque<CommitAck>,
 }
 
 impl HeadlessMountSink {
     fn commit(&mut self, ack: CommitAck) {
-        self.commits.push(ack);
+        if self.commits.len() == MAX_RETAINED_HEADLESS_COMMITS {
+            self.commits.pop_front();
+        }
+        self.commits.push_back(ack);
     }
 
-    pub fn commits(&self) -> &[CommitAck] {
+    pub fn commits(&self) -> &VecDeque<CommitAck> {
         &self.commits
     }
 }
@@ -351,6 +360,25 @@ mod tests {
             assert_eq!(state.borrow().sink().commits().len(), 24);
             Ok(())
         }).unwrap();
+    }
+
+    #[test]
+    fn headless_mount_sink_retains_a_bounded_commit_history() {
+        let mut sink = HeadlessMountSink::default();
+        for transaction_id in 1..=(MAX_RETAINED_HEADLESS_COMMITS as u64 + 5) {
+            sink.commit(CommitAck {
+                surface_id: SurfaceId::new(1),
+                session_generation: SessionGeneration::new(1),
+                transaction_id,
+                revision: transaction_id,
+                next_node_id: 1,
+                delta: Vec::new(),
+            });
+        }
+
+        assert_eq!(sink.commits().len(), MAX_RETAINED_HEADLESS_COMMITS);
+        assert_eq!(sink.commits().front().map(|ack| ack.transaction_id), Some(6));
+        assert_eq!(sink.commits().back().map(|ack| ack.transaction_id), Some(69));
     }
 
     #[test]
