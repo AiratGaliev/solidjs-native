@@ -1,11 +1,8 @@
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use sn_runtime::{
-    EngineSession, EngineSessionConfig, ManualClock, RuntimeClock, SessionError,
-    SessionGeneration, SurfaceId,
+    EngineSession, EngineSessionConfig, ManualClock, RuntimeClock, SessionError, SessionGeneration,
+    SurfaceId,
 };
 
 fn config(
@@ -149,7 +146,9 @@ fn a_surface_can_be_recreated_with_a_fresh_runtime_for_each_generation() {
         let diagnostics = handle.take_diagnostics();
         assert!(
             diagnostics.iter().any(|entry| {
-                entry.message.contains(&format!("generation-{generation}-cleanup"))
+                entry
+                    .message
+                    .contains(&format!("generation-{generation}-cleanup"))
             }),
             "the generation cleanup callback must run during shutdown: {diagnostics:?}"
         );

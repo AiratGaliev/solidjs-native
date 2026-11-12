@@ -74,10 +74,7 @@ impl EngineSessionConfig {
     /// Native hosts must provide the current non-zero Surface identity and
     /// generation. The default configuration is reserved for headless smoke
     /// tests and examples that do not represent a managed platform Surface.
-    pub fn for_surface(
-        surface_id: SurfaceId,
-        session_generation: SessionGeneration,
-    ) -> Self {
+    pub fn for_surface(surface_id: SurfaceId, session_generation: SessionGeneration) -> Self {
         Self {
             surface_id,
             session_generation,
