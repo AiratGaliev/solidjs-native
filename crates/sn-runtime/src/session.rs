@@ -2039,7 +2039,8 @@ mod tests {
             .map(|entry| entry.message)
             .collect();
         assert_eq!(messages, vec!["second cleanup", "first cleanup"]);
-    }    
+    }
+
     #[test]
     fn shutdown_bounds_cleanup_callbacks_and_continues_after_interrupt() {
         let mut config = config(Arc::new(MonotonicClock::default()));
@@ -2073,9 +2074,11 @@ mod tests {
             errors.len() >= 2,
             "expected the interrupted disposer and the following cleanup error to be diagnosed: {errors:?}"
         );
-        assert!(errors.iter().any(|entry| {
-            entry.message.contains("cleanup after timeout")
-        }));
+        assert!(
+            errors
+                .iter()
+                .any(|entry| { entry.message.contains("cleanup after timeout") })
+        );
     }
 
 }
