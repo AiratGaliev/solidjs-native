@@ -2173,19 +2173,16 @@ mod tests {
             let _ = submitted_tx.send((started.elapsed(), result));
         });
 
-        let (submission_elapsed, queued) =
-            match submitted_rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(submission) => submission,
-                Err(error) => {
-                    // Release the owner thread before failing so a regression
-                    // cannot leave a runaway JavaScript worker behind.
-                    let _ = active.cancel();
-                    let _ = active.wait_timeout(Duration::from_secs(2));
-                    panic!(
-                        "submitting a command blocked behind the active JavaScript turn: {error}"
-                    );
-                }
-            };
+        let (submission_elapsed, queued) = match submitted_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(submission) => submission,
+            Err(error) => {
+                // Release the owner thread before failing so a regression
+                // cannot leave a runaway JavaScript worker behind.
+                let _ = active.cancel();
+                let _ = active.wait_timeout(Duration::from_secs(2));
+                panic!("submitting a command blocked behind the active JavaScript turn: {error}");
+            }
+        };
 
         assert!(
             submission_elapsed < Duration::from_secs(1),
