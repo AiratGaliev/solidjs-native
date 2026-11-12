@@ -15,9 +15,6 @@
 //! [`EngineSessionConfig::for_surface`] so that each live Surface lifecycle
 //! has its actual non-zero identity and generation. [`EngineSessionConfig::default`]
 //! uses the reserved `1/1` identity for headless smoke tests and examples.
-//! Each EngineSession creates and owns its QuickJS Runtime and Context on a
-//! dedicated engine thread. Host/platform callers interact only through
-//! bounded commands and plain Rust values; QuickJS handles never cross threads.
 
 pub mod clock;
 mod host;

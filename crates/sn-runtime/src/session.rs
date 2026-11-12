@@ -530,7 +530,7 @@ impl EngineSessionHandle {
 
 /// Owns one QuickJS runtime, context and engine worker thread.
 ///
-/// Create one instance for each native Surface lifecycle. Call [`shutdown`]
+/// Create one instance for each native Surface lifecycle. Call [`EngineSession::shutdown`]
 /// from a non-UI thread when deterministic completion is required; dropping
 /// the owner requests ordered cleanup without blocking the dropping thread.
 pub struct EngineSession {

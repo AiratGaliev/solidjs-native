@@ -36,7 +36,7 @@ The current `crates/sn-runtime` package provides both a Rust library target and 
 
 A new session never reuses a QuickJS heap, Context, host tree, callback registry, timer queue or cleanup registry from a previous Surface generation. This is verified through the public library API by concurrent-Surface isolation and repeated create/dispose integration tests.
 
-The current public package is a concrete QuickJS-backed runtime, not a claim that multiple VM implementations or browser-equivalent globals are already supported. Any future VM-independent facade must remain free of QuickJS types and be introduced only with a concrete stable contract and conformance tests.
+The current public package is a concrete QuickJS-backed runtime, not a claim that multiple VM implementations or browser-equivalent globals are already supported. The target architecture may later extract a VM-independent `sn-runtime-api` and a dedicated `sn-runtime-quickjs` backend when their contracts are ready; this change does not claim that a second VM backend or that future crate split has been delivered.
 
 ## 2. SolidJS integration
 
