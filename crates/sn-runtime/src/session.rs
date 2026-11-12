@@ -1214,9 +1214,14 @@ impl RuntimeWorker {
 
         let cleanups = self.cleanup.borrow_mut().take_all_reverse();
         for cleanup in cleanups {
+            // Solid cleanup callbacks are application JavaScript too. Bound each
+            // callback so a stuck disposer cannot prevent the remaining roots
+            // from being released or keep the QuickJS session alive forever.
+            self.set_turn(0);
             let result = self
                 .context
                 .with(|ctx| cleanup.restore(&ctx)?.call::<_, ()>(()));
+            self.end_turn();
             if let Err(error) = result {
                 self.record_js_error(&error, DiagnosticKind::JavaScriptException);
             }
@@ -2034,5 +2039,43 @@ mod tests {
             .map(|entry| entry.message)
             .collect();
         assert_eq!(messages, vec!["second cleanup", "first cleanup"]);
+    }    
+    #[test]
+    fn shutdown_bounds_cleanup_callbacks_and_continues_after_interrupt() {
+        let mut config = config(Arc::new(MonotonicClock::default()));
+        config.max_execution_time = Duration::from_millis(30);
+        let session = EngineSession::start(config).unwrap();
+        let handle = session.handle();
+
+        // LIFO means the infinite callback runs first. The earlier callback
+        // must still run after the interrupt ends the unbounded disposer.
+        handle
+            .evaluate(
+                "__sn_register_session_cleanup(() => { throw new Error('cleanup after timeout'); }); __sn_register_session_cleanup(() => { while (true) {} });",
+            )
+            .unwrap()
+            .wait()
+            .unwrap();
+
+        let started = Instant::now();
+        session.shutdown().unwrap();
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "an unbounded cleanup callback prevented EngineSession shutdown"
+        );
+
+        let errors: Vec<_> = handle
+            .take_diagnostics()
+            .into_iter()
+            .filter(|entry| entry.kind == DiagnosticKind::JavaScriptException)
+            .collect();
+        assert!(
+            errors.len() >= 2,
+            "expected the interrupted disposer and the following cleanup error to be diagnosed: {errors:?}"
+        );
+        assert!(errors.iter().any(|entry| {
+            entry.message.contains("cleanup after timeout")
+        }));
     }
+
 }
