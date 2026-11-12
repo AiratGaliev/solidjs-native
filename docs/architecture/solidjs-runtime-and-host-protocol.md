@@ -305,6 +305,35 @@ requestAnimationFrame must have one documented meaning:
 - runtime does not wake a suspended surface solely for an unnecessary RAF.
 Native transitions should use platform animation driver instead of scheduling a JS callback every frame.
 
+### 6.6. M2 scheduler policy
+
+The first reusable QuickJS scheduler implements the following concrete defaults. All limits are configurable through `EngineSessionConfig`:
+
+| Contract | Initial policy |
+|---|---|
+| Ownership | One dedicated QuickJS owner thread per `EngineSession`; the public handle carries only plain Rust values and bounded commands. |
+| Session identity | Platform hosts must provide the actual non-zero `SurfaceId` and `SessionGeneration`; default identity `1/1` is intended for headless smoke/tests only. |
+| External task queue | Bounded FIFO, 256 commands by default; non-blocking submission returns `QueueFull` rather than blocking the caller. |
+| Queued payload budget | 16 MiB aggregate payload bytes by default; the byte reservation is released when a command is dequeued. Each external completion is independently limited to 1 MiB. |
+| Command fairness | At most 8 consecutive host commands are processed before the loop checks due timers and services a Promise-job slice. |
+| Promise-job slice | Up to 64 jobs or 4 ms between job boundaries, whichever comes first. A currently executing JS call/job is separately interrupt-capped at 100 ms; remaining jobs yield back to host input and timers. |
+| Synchronous JS execution | 100 ms interrupt deadline per JS call/job by default. |
+| QuickJS limits | 64 MiB heap and 256 KiB stack by default. |
+| Timers | 1 ms minimum resolution; maximum delay is clamped to the signed 32-bit millisecond range. The deadline heap is compacted and bounded to 8,192 entries. |
+| Repeating timers | Fixed-delay: the next deadline is based on actual dispatch time; missed intervals are skipped, not replayed in a burst. |
+| Equal-deadline ordering | Already queued host/input commands are handled before due timers. The command quantum prevents an unbounded input stream from postponing timer checks indefinitely. |
+| External completion | One-shot callback registry; payloads are owned byte buffers up to 1 MiB. Missing/removed callback IDs are diagnosed as stale and ignored. |
+| Diagnostics | Bounded ring buffer of 128 entries; message and stack text are each capped at 4 KiB. Promise rejections report both unhandled and later-handled notifications. The `take_diagnostics()` API transfers and clears the retained records. |
+
+`queueMicrotask` is submitted to the same QuickJS Promise-job queue, preserving ordering with Promise callbacks. Its initial implementation uses a Promise reaction to enqueue the callback; thrown callback errors therefore surface through the Promise rejection diagnostics path. This is not a claim of complete browser-host exception semantics.
+
+The platform host polls the coalesced `frame_requested` signal and supplies frame timestamps. At frame start the scheduler snapshots the highest callback ID in that frame. It removes one callback immediately before invoking it, so an earlier callback can cancel a later callback from the same frame. Callbacks requested while a frame is running have larger IDs and are deferred to the next frame.
+
+Each `render()` disposer is registered with the owning session. Manual unmount unregisters the persistent cleanup root immediately. Session shutdown invokes remaining root disposers in reverse registration order; each disposer runs under the configured synchronous execution deadline so a stuck cleanup cannot prevent later roots from being released. The runtime drains a bounded job slice after each disposer, flushes the host batch, then disposes the host and scheduler registries before releasing QuickJS on its owner thread. Explicit `shutdown()` waits for the worker and must be called off the platform/UI thread; dropping the owning `EngineSession` requests the same ordered cleanup without joining. Shutdown first interrupts an active JS turn, then applies the execution deadline independently to every cleanup callback.
+
+The `EngineSession` API completes a script/event ticket after its synchronous call and one bounded Promise-job slice. If the job queue remains non-empty, the event loop continues with further slices; a completed ticket is not a promise that an unbounded microtask chain has become quiescent.
+
+
 ## 7. Runtime API compatibility inventory
 
 The runtime must maintain an explicit support table for globals and modules:
@@ -327,6 +356,24 @@ The runtime must maintain an explicit support table for globals and modules:
 - locale/timezone APIs only when behavior can be defined consistently.
 
 A browser global must not be exposed as a stub that behaves differently in subtle ways. For each API, choose supported, unsupported, or platform-specific and write conformance tests.
+
+### 7.1. M2 support status
+
+The reusable runtime currently exposes only the following host compatibility surface. This table is intentionally conservative; a capability not listed as supported must not be inferred from the presence of a similarly named QuickJS intrinsic.
+
+| API | M2 status | Contract |
+|---|---|---|
+| ECMAScript language, Promise, async/await | Supported by QuickJS full context | Executes on the session owner thread. |
+| Promise jobs | Supported | Explicit bounded draining through QuickJS pending-job API. |
+| `queueMicrotask` | Supported with documented exception semantics | Enqueued on the Promise job queue; thrown errors are reported through rejection diagnostics. |
+| `setTimeout`, `setInterval`, clear variants | Supported | Monotonic clock, 1 ms minimum resolution, fixed-delay repeating policy and bounded timer registries. |
+| `performance.now` | Supported | Monotonic milliseconds relative to the configured clock origin. |
+| `requestAnimationFrame`, `cancelAnimationFrame` | Host-driven | Requires the platform Surface frame driver to poll and deliver timestamps. The runtime does not autonomously request or synthesize frames. |
+| ArrayBuffer, DataView, TypedArray | QuickJS built-ins | Available through the full context; host completion payloads are copied into an owned Uint8Array. |
+| ESM module loading | Not exposed by `EngineSession` in M2 | The current CLI smoke path evaluates the bundled JavaScript output as one script. |
+| AbortController/AbortSignal, URL, TextEncoder/TextDecoder, fetch, Request/Response, streams, console, crypto, structuredClone | Not part of the M2 host contract | Do not assume browser parity or expose placeholders; each needs a separate implementation and conformance scope. |
+
+
 
 ## 8. Callback registry and garbage collection
 

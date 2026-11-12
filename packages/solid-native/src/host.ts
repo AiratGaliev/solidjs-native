@@ -3,6 +3,8 @@ import { assertHostValue, HostBatchEncoder, type HostBatchAck } from "./protocol
 
 declare global {
   var __sn_flush_host_batch: (() => HostBatchAck | undefined) | undefined;
+  var __sn_register_session_cleanup: ((callback: () => void) => number) | undefined;
+  var __sn_unregister_session_cleanup: ((id: number) => boolean) | undefined;
 }
 
 export type NativeNode = {
@@ -193,9 +195,13 @@ export function render(code: () => unknown, root: NativeNode) {
   }
 
   let disposed = false;
-  return () => {
+  let cleanupId: number | undefined;
+  const cleanup = () => {
     if (disposed) return;
     disposed = true;
+    if (cleanupId !== undefined) {
+      globalThis.__sn_unregister_session_cleanup?.(cleanupId);
+    }
 
     try {
       dispose?.();
@@ -221,6 +227,19 @@ export function render(code: () => unknown, root: NativeNode) {
     }
     clearLocalSubtree(root);
   };
+
+  try {
+    cleanupId = globalThis.__sn_register_session_cleanup?.(cleanup);
+  } catch (error) {
+    try {
+      cleanup();
+    } catch {
+      // Preserve the cleanup-registration failure; the disposer has already
+      // attempted to release the local Solid root and encoder transaction.
+    }
+    throw error;
+  }
+  return cleanup;
 }
 
 export function View(props: { children?: unknown; onClick?: (event: unknown) => void }) {
