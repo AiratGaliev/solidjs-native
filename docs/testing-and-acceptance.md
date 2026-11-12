@@ -70,7 +70,7 @@ The runtime scheduler's focused Rust tests cover:
 - runtime shutdown while Promise jobs remain pending;
 - bounded timer deadline storage after repeated set/clear cycles;
 - command payload byte-budget enforcement and cancellation state cleanup after completion;
-- shutdown interruption of a running JS turn followed by LIFO root cleanup;
+- shutdown interruption of a running JS turn, per-disposer execution deadlines, and continued LIFO root cleanup after a stuck disposer;
 - callback-root cleanup during session teardown.
 
 
