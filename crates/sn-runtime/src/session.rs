@@ -36,6 +36,7 @@ const DEFAULT_HEAP_LIMIT: usize = 64 * 1024 * 1024;
 const DEFAULT_STACK_LIMIT: usize = 256 * 1024;
 const MAX_IDLE_WAIT: Duration = Duration::from_secs(60);
 
+/// Resource and scheduling limits for one isolated Surface runtime.
 #[derive(Clone)]
 pub struct EngineSessionConfig {
     pub surface_id: SurfaceId,
@@ -68,6 +69,19 @@ impl Default for EngineSessionConfig {
 }
 
 impl EngineSessionConfig {
+    /// Creates a configuration for a concrete Surface lifecycle.
+    ///
+    /// Native hosts must provide the current non-zero Surface identity and
+    /// generation. The default configuration is reserved for headless smoke
+    /// tests and examples that do not represent a managed platform Surface.
+    pub fn for_surface(surface_id: SurfaceId, session_generation: SessionGeneration) -> Self {
+        Self {
+            surface_id,
+            session_generation,
+            ..Self::default()
+        }
+    }
+
     fn validate(&self) -> Result<(), SessionError> {
         if self.surface_id.get() == 0 || self.session_generation.get() == 0 {
             return Err(SessionError::InvalidConfig(
@@ -252,6 +266,10 @@ impl<T> TaskTicket<T> {
     }
 }
 
+/// Cloneable, thread-safe command handle for a single Surface runtime.
+///
+/// The handle contains only Rust-owned data and a bounded command sender.
+/// It never exposes QuickJS values, contexts, functions or runtime pointers.
 #[derive(Clone)]
 pub struct EngineSessionHandle {
     sender: SyncSender<Command>,
@@ -507,12 +525,22 @@ impl EngineSessionHandle {
     }
 }
 
+/// Owns one QuickJS runtime, context and engine worker thread.
+///
+/// Create one instance for each native Surface lifecycle. Call [`EngineSession::shutdown`]
+/// from a non-UI thread when deterministic completion is required; dropping
+/// the owner requests ordered cleanup without blocking the dropping thread.
 pub struct EngineSession {
     handle: EngineSessionHandle,
     worker: Option<JoinHandle<()>>,
 }
 
 impl EngineSession {
+    /// Starts a fresh QuickJS Runtime and Context on a dedicated owner thread.
+    ///
+    /// Every call creates isolated VM state and per-session host/scheduler
+    /// registries. The supplied SurfaceId and SessionGeneration are attached
+    /// to the host protocol identity and must be unique for the live lifecycle.
     pub fn start(config: EngineSessionConfig) -> Result<Self, SessionError> {
         config.validate()?;
 
@@ -565,11 +593,16 @@ impl EngineSession {
         }
     }
 
+    /// Returns a cloneable command handle for this Surface runtime.
     pub fn handle(&self) -> EngineSessionHandle {
         self.handle.clone()
     }
 
     /// Performs ordered session teardown on the owner thread and joins it.
+    ///
+    /// This call blocks until the worker exits and must not be made on a
+    /// platform UI thread. Dropping EngineSession instead requests shutdown
+    /// without joining the worker.
     pub fn shutdown(mut self) -> Result<(), SessionError> {
         let (response_tx, response_rx) = mpsc::sync_channel(1);
         {
@@ -1678,6 +1711,40 @@ mod tests {
             "true"
         );
         session.shutdown().unwrap();
+    }
+
+    #[test]
+    fn each_surface_owns_a_distinct_quickjs_thread() {
+        let first = EngineSession::start(EngineSessionConfig::for_surface(
+            SurfaceId::new(11),
+            SessionGeneration::new(1),
+        ))
+        .unwrap();
+        let second = EngineSession::start(EngineSessionConfig::for_surface(
+            SurfaceId::new(22),
+            SessionGeneration::new(1),
+        ))
+        .unwrap();
+        let first_handle = first.handle();
+        let second_handle = second.handle();
+
+        let first_owner = *lock_recover(&first_handle.owner_thread)
+            .as_ref()
+            .expect("first runtime owner thread should be initialized");
+        let second_owner = *lock_recover(&second_handle.owner_thread)
+            .as_ref()
+            .expect("second runtime owner thread should be initialized");
+
+        assert_ne!(first_owner, second_owner);
+        assert_ne!(first_owner, thread::current().id());
+        assert_ne!(second_owner, thread::current().id());
+        assert!(!first_handle.is_owner_thread());
+        assert!(!second_handle.is_owner_thread());
+
+        first.shutdown().unwrap();
+        second.shutdown().unwrap();
+        assert!(lock_recover(&first_handle.owner_thread).is_none());
+        assert!(lock_recover(&second_handle.owner_thread).is_none());
     }
 
     #[test]

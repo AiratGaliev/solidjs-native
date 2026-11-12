@@ -51,7 +51,7 @@ Key documents:
 ## Current workspace
 
 - crates/sn-core — platform-independent authoritative retained UI tree, typed properties, revisioned transactions and strict Host Protocol v1 decoder.
-- crates/sn-runtime — QuickJS-NG runner and M1 native bindings for owned batch submission, event dispatch and callback-root cleanup; the reusable runtime library is a later M2 deliverable.
+- crates/sn-runtime — reusable QuickJS-NG runtime library exposing `EngineSession` / `EngineSessionHandle`, plus a separate CLI smoke binary. Every native Surface lifecycle receives its own engine thread, QuickJS Runtime and Context; QuickJS handles remain behind the crate's private implementation boundary.
 - packages/solid-native — Solid Universal renderer adapter, per-session node handles and Host Protocol v1 binary encoder.
 - examples/counter — TSX integration smoke test for Rust tree mount, click dispatch, signal update and repeated renderer cleanup.
 - docs — target architecture, runtime contracts, platform design, roadmap and ADRs.

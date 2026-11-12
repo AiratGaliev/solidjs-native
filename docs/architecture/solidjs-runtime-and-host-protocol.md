@@ -22,6 +22,22 @@ Native runtime surface состоит из:
 
 QuickJS types не должны появляться в публичных API EngineSession, sn-core, sn-layout, sn-platform-api или platform crates.
 
+### 1.1. Reusable library and QuickJS boundary
+
+The current `crates/sn-runtime` package provides both a Rust library target and a separate CLI smoke binary:
+
+- `src/lib.rs` is the public library facade and re-exports the session, configuration, clock and diagnostic contracts.
+- `src/main.rs` is only a smoke runner; it consumes the library API and does not create QuickJS objects directly.
+- `session`, `host` and `scheduler` are private implementation modules. The public surface does not expose `rquickjs` types.
+- A call to `EngineSession::start` creates a new QuickJS Runtime, Context, host state, scheduler state and cleanup registry on one dedicated worker thread.
+- The worker thread is the sole owner of every QuickJS value and resource. Cross-thread commands and results contain Rust-owned values only.
+- The owner is scoped to one `SurfaceId + SessionGeneration`. Native hosts use `EngineSessionConfig::for_surface` with the real non-zero identity; the default `1/1` configuration is reserved for headless smoke tests and examples.
+- `EngineSession::shutdown` performs ordered cleanup and joins the worker, so callers must invoke it away from the platform UI thread. Dropping the owner requests the same cleanup without synchronously joining that thread.
+
+A new session never reuses a QuickJS heap, Context, host tree, callback registry, timer queue or cleanup registry from a previous Surface generation. This is verified through the public library API by concurrent-Surface isolation and repeated create/dispose integration tests.
+
+The current public package is a concrete QuickJS-backed runtime, not a claim that multiple VM implementations or browser-equivalent globals are already supported. The target architecture may later extract a VM-independent `sn-runtime-api` and a dedicated `sn-runtime-quickjs` backend when their contracts are ready; this change does not claim that a second VM backend or that future crate split has been delivered.
+
 ## 2. SolidJS integration
 
 ### 2.1. Компиляция
@@ -454,6 +470,13 @@ Bridge tests:
 - event binding to removed node;
 - failed transaction leaves tree/revision unchanged;
 - successful transaction increments once.
+
+Runtime library lifecycle tests:
+- two concurrent Surface sessions use distinct QuickJS owner threads, globals, host identities and scheduler clocks;
+- a Surface can be destroyed and recreated repeatedly with an incremented SessionGeneration;
+- each recreated generation starts with an empty runtime context, host tree and callback registry;
+- old handles reject new commands after shutdown;
+- session cleanup callbacks run before the QuickJS context is released.
 
 Runtime scheduler tests:
 - Promise job after event callback;
