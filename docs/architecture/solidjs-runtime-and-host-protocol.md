@@ -323,7 +323,7 @@ The first reusable QuickJS scheduler implements the following concrete defaults.
 | Repeating timers | Fixed-delay: the next deadline is based on actual dispatch time; missed intervals are skipped, not replayed in a burst. |
 | Equal-deadline ordering | Already queued host/input commands are handled before due timers. The command quantum prevents an unbounded input stream from postponing timer checks indefinitely. |
 | External completion | One-shot callback registry; payloads are owned byte buffers up to 1 MiB. Missing/removed callback IDs are diagnosed as stale and ignored. |
-| Diagnostics | Bounded ring buffer of 128 entries; message and stack text are each capped at 4 KiB. Promise rejections report both unhandled and later-handled notifications. | The `take_diagnostics()` API transfers and clears the retained records.
+| Diagnostics | Bounded ring buffer of 128 entries; message and stack text are each capped at 4 KiB. Promise rejections report both unhandled and later-handled notifications. The `take_diagnostics()` API transfers and clears the retained records. |
 
 `queueMicrotask` is submitted to the same QuickJS Promise-job queue, preserving ordering with Promise callbacks. Its initial implementation uses a Promise reaction to enqueue the callback; thrown callback errors therefore surface through the Promise rejection diagnostics path. This is not a claim of complete browser-host exception semantics.
 

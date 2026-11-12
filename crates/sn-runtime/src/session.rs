@@ -1317,8 +1317,10 @@ fn run_event_loop(
     let mut commands_since_job_slice = 0usize;
 
     loop {
+        let mut received_command = false;
         match receiver.try_recv() {
             Ok(command) => {
+                received_command = true;
                 let is_shutdown = matches!(&command, Command::Shutdown(_));
                 if !is_shutdown {
                     handle.pending_commands.fetch_sub(1, Ordering::AcqRel);
@@ -1354,6 +1356,17 @@ fn run_event_loop(
 
         commands_since_job_slice = 0;
 
+        // Once closed, do not execute timers or Promise jobs. Drain and reject
+        // every queued ticket first; the command quantum must not truncate
+        // shutdown cleanup when a full queue is larger than one quantum.
+        if handle.closed.load(Ordering::Acquire) {
+            if received_command {
+                continue;
+            }
+            let _ = worker.shutdown();
+            break;
+        }
+
         let now = worker.config.clock.now();
         if worker
             .next_timer_deadline()
@@ -1366,11 +1379,6 @@ fn run_event_loop(
         if worker.runtime.is_job_pending() {
             worker.drain_job_slice(0);
             continue;
-        }
-
-        if handle.closed.load(Ordering::Acquire) {
-            let _ = worker.shutdown();
-            break;
         }
 
         let timeout = worker
@@ -1911,6 +1919,35 @@ mod tests {
             diagnostic.kind == DiagnosticKind::JavaScriptException
                 && diagnostic.message.contains("shutdown cleanup ran")
         }));
+    }
+
+    #[test]
+    fn dropping_session_rejects_all_queued_tasks_after_a_full_command_quantum() {
+        let mut config = config(Arc::new(MonotonicClock::default()));
+        config.queue_capacity = 10;
+        let session = EngineSession::start(config).unwrap();
+        let handle = session.handle();
+
+        let active = handle.evaluate("while (true) {}").unwrap();
+        let start_deadline = Instant::now() + Duration::from_secs(2);
+        while handle.active_turn.load(Ordering::Acquire) != active.task_id() {
+            assert!(
+                Instant::now() < start_deadline,
+                "script did not enter its active JS turn"
+            );
+            thread::yield_now();
+        }
+
+        let queued = (0..10)
+            .map(|_| handle.evaluate_text("'queued'").unwrap())
+            .collect::<Vec<_>>();
+
+        drop(session);
+
+        assert_eq!(active.wait(), Err(SessionError::Closed));
+        for ticket in queued {
+            assert_eq!(ticket.wait(), Err(SessionError::Closed));
+        }
     }
 
     #[test]
