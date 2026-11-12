@@ -2080,5 +2080,4 @@ mod tests {
                 .any(|entry| { entry.message.contains("cleanup after timeout") })
         );
     }
-
 }
