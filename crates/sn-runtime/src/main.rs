@@ -22,26 +22,33 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
             let has_operation = |predicate: fn(&sn_core::HostOperation) -> bool| {
                 initial_commit.delta.iter().any(predicate)
             };
-            let has_view = has_operation(|operation| matches!(
-                operation,
-                sn_core::HostOperation::CreateElement { tag, .. } if tag == "view"
-            ));
-            let has_button = has_operation(|operation| matches!(
-                operation,
-                sn_core::HostOperation::CreateElement { tag, .. } if tag == "button"
-            ));
-            let has_initial_count = has_operation(|operation| matches!(
-                operation,
-                sn_core::HostOperation::CreateText { text, .. } if text == "Count: 0"
-            ));
-            let has_click_binding = has_operation(|operation| matches!(
-                operation,
-                sn_core::HostOperation::BindEvent { event, .. } if event == "click"
-            ));
-            let has_insert = has_operation(|operation| matches!(
-                operation,
-                sn_core::HostOperation::InsertNode { .. }
-            ));
+            let has_view = has_operation(|operation| {
+                matches!(
+                    operation,
+                    sn_core::HostOperation::CreateElement { tag, .. } if tag == "view"
+                )
+            });
+            let has_button = has_operation(|operation| {
+                matches!(
+                    operation,
+                    sn_core::HostOperation::CreateElement { tag, .. } if tag == "button"
+                )
+            });
+            let has_initial_count = has_operation(|operation| {
+                matches!(
+                    operation,
+                    sn_core::HostOperation::CreateText { text, .. } if text == "Count: 0"
+                )
+            });
+            let has_click_binding = has_operation(|operation| {
+                matches!(
+                    operation,
+                    sn_core::HostOperation::BindEvent { event, .. } if event == "click"
+                )
+            });
+            let has_insert = has_operation(|operation| {
+                matches!(operation, sn_core::HostOperation::InsertNode { .. })
+            });
             let initial_text = handle
                 .find_text_containing("Count:")
                 .map_err(|error| error.to_string())?
@@ -57,7 +64,9 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 || initial.callback_count == 0
                 || initial.roots.is_empty()
             {
-                return Err(format!("Counter initial mount acceptance failed: {initial:?}"));
+                return Err(format!(
+                    "Counter initial mount acceptance failed: {initial:?}"
+                ));
             }
             println!(
                 "SolidJS Counter mounted on the engine thread: nodes={}, callbacks={}, revision={}",
@@ -93,15 +102,23 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 commit
                     .delta
                     .iter()
-                    .filter(|operation| matches!(operation, sn_core::HostOperation::ReplaceText { .. }))
+                    .filter(|operation| {
+                        matches!(operation, sn_core::HostOperation::ReplaceText { .. })
+                    })
                     .count()
             });
             if updated_text.as_ref().map(|(_, text)| text.as_str()) != Some("Count: 2")
                 || updated.revision != initial.revision + 1
-                || updated.last_commit.as_ref().map_or(0, |commit| commit.delta.len()) != 2
+                || updated
+                    .last_commit
+                    .as_ref()
+                    .map_or(0, |commit| commit.delta.len())
+                    != 2
                 || replace_text_count != 2
             {
-                return Err(format!("Counter signal update acceptance failed: {updated:?}"));
+                return Err(format!(
+                    "Counter signal update acceptance failed: {updated:?}"
+                ));
             }
             println!(
                 "Promise + queueMicrotask updates coalesced into one Host Protocol commit with two ReplaceText operations (revision={})",

@@ -1433,11 +1433,7 @@ fn process_command(
             needle,
             response,
         } => {
-            let result = finish_task(
-                &worker.tasks,
-                id,
-                worker.find_text_containing(id, &needle),
-            );
+            let result = finish_task(&worker.tasks, id, worker.find_text_containing(id, &needle));
             let _ = response.send(result);
             None
         }
