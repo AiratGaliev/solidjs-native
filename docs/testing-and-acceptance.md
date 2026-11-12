@@ -68,6 +68,7 @@ The runtime scheduler's focused Rust tests cover:
 - one-shot external completions with an owned typed-array payload;
 - Promise-job budget yielding, command responsiveness while an unbounded Promise chain keeps rescheduling, and bounded unhandled-rejection diagnostics;
 - execution-deadline interruption plus heap and stack limit enforcement, including follow-up execution after each limit failure;
+- non-blocking command submission from a caller thread while the QuickJS owner thread is executing an unbounded JavaScript turn, followed by cancellation and queued-command completion;
 - runtime shutdown while Promise jobs remain pending;
 - bounded timer deadline storage after repeated set/clear cycles;
 - command payload byte-budget enforcement and cancellation state cleanup after completion;
