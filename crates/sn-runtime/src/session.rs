@@ -12,7 +12,7 @@ use std::{
 };
 
 use rquickjs::{Context, Exception, Function, Persistent, Runtime, TypedArray, Value};
-use sn_core::{NodeId, SessionGeneration, SurfaceId};
+use sn_core::{CommitAck, NodeId, SessionGeneration, SurfaceId};
 
 use crate::{
     clock::{MonotonicClock, RuntimeClock},
@@ -146,22 +146,15 @@ pub struct RuntimeDiagnostic {
     pub handled: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeSnapshot {
     pub revision: u64,
     pub node_count: usize,
     pub callback_count: usize,
     pub roots: Vec<u64>,
-    pub button_node_id: Option<u64>,
-    pub has_view: bool,
-    pub has_button: bool,
-    pub has_initial_count: bool,
-    pub has_click_binding: bool,
-    pub has_insert: bool,
-    pub last_commit_operation_count: usize,
-    pub last_commit_replace_text_count: usize,
-    pub last_commit_revision: Option<u64>,
-    pub counter_text: Option<String>,
+    /// Latest retained Host Protocol acknowledgement, independent of any demo
+    /// application or renderer-specific test fixture.
+    pub last_commit: Option<CommitAck>,
 }
 
 #[derive(Default)]
@@ -422,6 +415,19 @@ impl EngineSessionHandle {
         })
     }
 
+    /// Finds committed text content by substring without exposing QuickJS values.
+    pub fn find_text_containing(
+        &self,
+        needle: impl Into<String>,
+    ) -> Result<TaskTicket<Option<(u64, String)>>, SessionError> {
+        let needle = needle.into();
+        self.enqueue(needle.len(), |id, response| Command::FindTextContaining {
+            id,
+            needle,
+            response,
+        })
+    }
+
     pub fn dispatch_event(
         &self,
         node_id: u64,
@@ -627,6 +633,11 @@ enum Command {
         tag: String,
         response: SyncSender<Result<Option<u64>, SessionError>>,
     },
+    FindTextContaining {
+        id: u64,
+        needle: String,
+        response: SyncSender<Result<Option<(u64, String)>, SessionError>>,
+    },
     DispatchEvent {
         id: u64,
         node_id: u64,
@@ -665,6 +676,7 @@ impl Command {
         match self {
             Self::Evaluate { source, .. } | Self::EvaluateText { source, .. } => source.len(),
             Self::FindElement { tag, .. } => tag.len(),
+            Self::FindTextContaining { needle, .. } => needle.len(),
             Self::DispatchEvent { event_name, .. } => event_name.len(),
             Self::Completion { payload, .. } => payload.len(),
             Self::Frame { .. }
@@ -830,67 +842,14 @@ impl RuntimeWorker {
             .host
             .try_borrow()
             .map_err(|_| SessionError::Runtime("Host state is already borrowed".into()))?;
-        let last_commit = host.sink().commits().back();
-        let has_operation = |predicate: fn(&sn_core::HostOperation) -> bool| {
-            last_commit.is_some_and(|commit| commit.delta.iter().any(predicate))
-        };
-        let has_view = has_operation(|operation| {
-            matches!(
-                operation,
-                sn_core::HostOperation::CreateElement { tag, .. } if tag == "view"
-            )
-        });
-        let has_button = has_operation(|operation| {
-            matches!(
-                operation,
-                sn_core::HostOperation::CreateElement { tag, .. } if tag == "button"
-            )
-        });
-        let has_initial_count = has_operation(|operation| {
-            matches!(
-                operation,
-                sn_core::HostOperation::CreateText { text, .. } if text == "Count: 0"
-            )
-        });
-        let has_click_binding = has_operation(|operation| {
-            matches!(
-                operation,
-                sn_core::HostOperation::BindEvent { event, .. } if event == "click"
-            )
-        });
-        let has_insert = has_operation(|operation| {
-            matches!(operation, sn_core::HostOperation::InsertNode { .. })
-        });
-        let last_commit_replace_text_count = last_commit.map_or(0, |commit| {
-            commit
-                .delta
-                .iter()
-                .filter(|operation| matches!(operation, sn_core::HostOperation::ReplaceText { .. }))
-                .count()
-        });
-        let counter_text = host
-            .tree
-            .find_text_containing("Count:")
-            .and_then(|id| host.tree.text_content(id).ok())
-            .map(str::to_owned);
         Ok(RuntimeSnapshot {
             revision: host.tree.revision(),
             node_count: host.tree.node_count(),
             callback_count: host.callback_count(),
             roots: host.tree.roots().iter().map(|id| id.get()).collect(),
-            button_node_id: host.tree.find_element("button").map(|id| id.get()),
-            has_view,
-            has_button,
-            has_initial_count,
-            has_click_binding,
-            has_insert,
-            last_commit_operation_count: last_commit.map_or(0, |ack| ack.delta.len()),
-            last_commit_replace_text_count,
-            last_commit_revision: last_commit.map(|ack| ack.revision),
-            counter_text,
+            last_commit: host.sink().commits().back().cloned(),
         })
     }
-
     fn record(
         &self,
         kind: DiagnosticKind,
@@ -1062,6 +1021,27 @@ impl RuntimeWorker {
             .try_borrow()
             .map_err(|_| SessionError::Runtime("Host state is already borrowed".into()))?;
         Ok(host.tree.find_element(tag).map(|node_id| node_id.get()))
+    }
+
+    fn find_text_containing(
+        &self,
+        id: u64,
+        needle: &str,
+    ) -> Result<Option<(u64, String)>, SessionError> {
+        self.check_cancelled(id)?;
+        let host = self
+            .host
+            .try_borrow()
+            .map_err(|_| SessionError::Runtime("Host state is already borrowed".into()))?;
+        let Some(node_id) = host.tree.find_text_containing(needle) else {
+            return Ok(None);
+        };
+        let text = host
+            .tree
+            .text_content(node_id)
+            .map_err(|error| SessionError::Runtime(error.to_string()))?
+            .to_owned();
+        Ok(Some((node_id.get(), text)))
     }
 
     fn dispatch_event(
@@ -1448,6 +1428,19 @@ fn process_command(
             let _ = response.send(result);
             None
         }
+        Command::FindTextContaining {
+            id,
+            needle,
+            response,
+        } => {
+            let result = finish_task(
+                &worker.tasks,
+                id,
+                worker.find_text_containing(id, &needle),
+            );
+            let _ = response.send(result);
+            None
+        }
         Command::DispatchEvent {
             id,
             node_id,
@@ -1545,6 +1538,9 @@ fn reject_closed_command(command: Command, tasks: &Arc<Mutex<TaskRegistry>>) {
             let _ = response.send(finish_task(tasks, id, Err(SessionError::Closed)));
         }
         Command::FindElement { id, response, .. } => {
+            let _ = response.send(finish_task(tasks, id, Err(SessionError::Closed)));
+        }
+        Command::FindTextContaining { id, response, .. } => {
             let _ = response.send(finish_task(tasks, id, Err(SessionError::Closed)));
         }
         Command::DispatchEvent { id, response, .. } => {
