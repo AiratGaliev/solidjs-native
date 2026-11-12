@@ -58,7 +58,7 @@ The current runtime smoke command is:
 pnpm smoke
 ```
 
-It builds the TSX demo and executes it through the reusable `EngineSession` library on its dedicated QuickJS owner thread. The smoke verifies the initial typed host mount, asynchronous Promise and `queueMicrotask` updates after an event, coalescing both `ReplaceText` operations into one Host Protocol commit, root cleanup, and repeated mount/unmount callback reclamation. It is a narrow runtime integration proof, not a native window, platform input, accessibility or full GUI E2E suite.
+It builds the TSX demo and executes it through the reusable `EngineSession` library on its dedicated QuickJS owner thread. The smoke verifies the initial typed host mount, a normal single-step Counter increment plus an asynchronous status update via Promise and `queueMicrotask`, coalescing both `ReplaceText` operations into one Host Protocol commit, root cleanup, and repeated mount/unmount callback reclamation. It is a narrow runtime integration proof, not a native window, platform input, accessibility or full GUI E2E suite.
 
 The runtime scheduler's focused Rust tests cover:
 - dedicated-thread session ownership and string-only evaluation results;

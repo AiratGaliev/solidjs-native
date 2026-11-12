@@ -54,6 +54,11 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 .map_err(|error| error.to_string())?
                 .wait()
                 .map_err(|error| error.to_string())?;
+            let initial_status = handle
+                .find_text_containing("Async:")
+                .map_err(|error| error.to_string())?
+                .wait()
+                .map_err(|error| error.to_string())?;
 
             if !has_view
                 || !has_button
@@ -61,6 +66,7 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 || !has_click_binding
                 || !has_insert
                 || initial_text.as_ref().map(|(_, text)| text.as_str()) != Some("Count: 0")
+                || initial_status.as_ref().map(|(_, text)| text.as_str()) != Some("Async: Idle")
                 || initial.callback_count == 0
                 || initial.roots.is_empty()
             {
@@ -98,6 +104,11 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 .map_err(|error| error.to_string())?
                 .wait()
                 .map_err(|error| error.to_string())?;
+            let updated_status = handle
+                .find_text_containing("Async:")
+                .map_err(|error| error.to_string())?
+                .wait()
+                .map_err(|error| error.to_string())?;
             let replace_text_count = updated.last_commit.as_ref().map_or(0, |commit| {
                 commit
                     .delta
@@ -107,7 +118,8 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                     })
                     .count()
             });
-            if updated_text.as_ref().map(|(_, text)| text.as_str()) != Some("Count: 2")
+            if updated_text.as_ref().map(|(_, text)| text.as_str()) != Some("Count: 1")
+                || updated_status.as_ref().map(|(_, text)| text.as_str()) != Some("Async: Ready")
                 || updated.revision != initial.revision + 1
                 || updated
                     .last_commit

@@ -3,14 +3,16 @@ import { render, View, Text, Button, type NativeNode } from "solid-native";
 
 function App() {
   const [count, setCount] = createSignal(0);
+  const [status, setStatus] = createSignal("Idle");
   return (
     <View>
       <Text>SolidJS Native renderer smoke test</Text>
       <Text>{`Count: ${count()}`}</Text>
+      <Text>{`Async: ${status()}`}</Text>
       <Button
         onClick={() => {
           Promise.resolve().then(() => setCount((value) => value + 1));
-          queueMicrotask(() => setCount((value) => value + 1));
+          queueMicrotask(() => setStatus("Ready"));
         }}
       >
         Increment
