@@ -2147,4 +2147,62 @@ mod tests {
                 .any(|entry| { entry.message.contains("cleanup after timeout") })
         );
     }
+
+    #[test]
+    fn caller_can_submit_work_while_quickjs_owner_thread_runs_unbounded_javascript() {
+        let mut config = config(Arc::new(MonotonicClock::default()));
+        config.max_execution_time = Duration::from_secs(10);
+        let session = EngineSession::start(config).unwrap();
+        let handle = session.handle();
+
+        let active = handle.evaluate("while (true) {}").unwrap();
+        let start_deadline = Instant::now() + Duration::from_secs(2);
+        while handle.active_turn.load(Ordering::Acquire) != active.task_id() {
+            assert!(
+                Instant::now() < start_deadline,
+                "the unbounded JavaScript task did not enter its active turn"
+            );
+            thread::yield_now();
+        }
+
+        let producer_handle = handle.clone();
+        let (submitted_tx, submitted_rx) = mpsc::sync_channel(1);
+        let producer = thread::spawn(move || {
+            let started = Instant::now();
+            let result = producer_handle.evaluate_text("'queued'");
+            let _ = submitted_tx.send((started.elapsed(), result));
+        });
+
+        let (submission_elapsed, queued) =
+            match submitted_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(submission) => submission,
+                Err(error) => {
+                    // Release the owner thread before failing so a regression
+                    // cannot leave a runaway JavaScript worker behind.
+                    let _ = active.cancel();
+                    let _ = active.wait_timeout(Duration::from_secs(2));
+                    panic!(
+                        "submitting a command blocked behind the active JavaScript turn: {error}"
+                    );
+                }
+            };
+
+        assert!(
+            submission_elapsed < Duration::from_secs(1),
+            "command submission must not wait for JavaScript execution"
+        );
+        let queued = queued.expect("the bounded command queue should accept the task");
+
+        assert!(active.cancel(), "the running JavaScript task should cancel");
+        assert_eq!(active.wait(), Err(SessionError::Cancelled));
+        assert_eq!(
+            queued
+                .wait_timeout(Duration::from_secs(2))
+                .expect("queued task should run after cancellation"),
+            "queued"
+        );
+
+        producer.join().expect("submission thread should finish");
+        session.shutdown().unwrap();
+    }
 }
