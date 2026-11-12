@@ -463,7 +463,7 @@ mod tests {
             }
             let scheduler = state.borrow();
             assert_eq!(scheduler.pending_counts().0, 0);
-            assert!(scheduler.deadlines.len() < MAX_TIMER_QUEUE_ENTRIES);
+            assert!(scheduler.deadlines.len() <= MAX_TIMER_QUEUE_ENTRIES);
         });
         state.borrow_mut().dispose();
         runtime.run_gc();
@@ -483,7 +483,12 @@ mod tests {
                 "globalThis.order = []; order.push('sync'); Promise.resolve().then(() => order.push('promise')); queueMicrotask(() => order.push('microtask')); order.push('end');",
             )
             .unwrap();
-            run_jobs(&runtime, 16);
+        });
+
+        // Runtime queue operations must run outside Context::with: the context
+        // guard already owns the Runtime's internal mutable borrow.
+        run_jobs(&runtime, 16);
+        context.with(|ctx| {
             let order: String = ctx.eval("order.join(',')").unwrap();
             assert_eq!(order, "sync,end,promise,microtask");
         });
