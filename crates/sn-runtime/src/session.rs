@@ -1728,14 +1728,12 @@ mod tests {
         let first_handle = first.handle();
         let second_handle = second.handle();
 
-        let first_owner = lock_recover(&first_handle.owner_thread)
+        let first_owner = *lock_recover(&first_handle.owner_thread)
             .as_ref()
-            .expect("first runtime owner thread should be initialized")
-            .clone();
-        let second_owner = lock_recover(&second_handle.owner_thread)
+            .expect("first runtime owner thread should be initialized");
+        let second_owner = *lock_recover(&second_handle.owner_thread)
             .as_ref()
-            .expect("second runtime owner thread should be initialized")
-            .clone();
+            .expect("second runtime owner thread should be initialized");
 
         assert_ne!(first_owner, second_owner);
         assert_ne!(first_owner, thread::current().id());
