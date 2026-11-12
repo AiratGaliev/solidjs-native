@@ -1953,9 +1953,12 @@ mod tests {
             .unwrap()
             .wait()
             .unwrap();
-        assert!(handle.take_diagnostics().iter().any(|diagnostic| {
-            diagnostic.kind == DiagnosticKind::SchedulerBudgetExhausted
-        }));
+        assert!(
+            handle
+                .take_diagnostics()
+                .iter()
+                .any(|diagnostic| { diagnostic.kind == DiagnosticKind::SchedulerBudgetExhausted })
+        );
 
         let started = Instant::now();
         session.shutdown().unwrap();
@@ -1963,9 +1966,12 @@ mod tests {
             started.elapsed() < Duration::from_secs(2),
             "shutdown did not release a runtime with a pending Promise-job chain"
         );
-        assert!(handle.take_diagnostics().iter().any(|diagnostic| {
-            diagnostic.kind == DiagnosticKind::Shutdown
-        }));
+        assert!(
+            handle
+                .take_diagnostics()
+                .iter()
+                .any(|diagnostic| { diagnostic.kind == DiagnosticKind::Shutdown })
+        );
     }
 
     #[test]
