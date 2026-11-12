@@ -119,6 +119,17 @@ fn command_responses_remain_bounded_while_promise_jobs_keep_rescheduling() {
         .wait()
         .expect("initial script should execute");
 
+    // The initial evaluate drains one bounded job slice. Capture that baseline
+    // before the command burst so the assertion below proves that Promise jobs
+    // continue making progress while commands are being serviced.
+    let chain_count_before = handle
+        .evaluate_text("String(chainCount)")
+        .expect("baseline query should be accepted")
+        .wait()
+        .expect("baseline query should complete")
+        .parse::<u64>()
+        .expect("baseline chain count should be numeric");
+
     let tickets = (0..24)
         .map(|index| {
             handle
@@ -136,7 +147,7 @@ fn command_responses_remain_bounded_while_promise_jobs_keep_rescheduling() {
         );
     }
 
-    let chain_count = handle
+    let chain_count_after = handle
         .evaluate_text("String(chainCount)")
         .expect("progress query should be accepted")
         .wait()
@@ -144,8 +155,8 @@ fn command_responses_remain_bounded_while_promise_jobs_keep_rescheduling() {
         .parse::<u64>()
         .expect("chain count should be numeric");
     assert!(
-        chain_count > 0,
-        "the pending Promise chain should have made progress"
+        chain_count_after > chain_count_before,
+        "Promise jobs should keep making progress between command batches: before={chain_count_before}, after={chain_count_after}"
     );
 
     session.shutdown().expect("runtime should shut down");
