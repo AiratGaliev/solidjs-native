@@ -470,6 +470,41 @@ mod tests {
     }
 
     #[test]
+    fn promise_jobs_run_before_due_timers_and_timer_jobs_run_after() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+        let manual = Arc::new(ManualClock::default());
+        let clock: Arc<dyn RuntimeClock> = manual.clone();
+        let frame_requested = Arc::new(AtomicBool::new(false));
+        let state = Rc::new(RefCell::new(SchedulerState::new(frame_requested)));
+
+        context.with(|ctx| {
+            install_bindings(ctx.clone(), state.clone(), clock).unwrap();
+            ctx.eval::<(), _>(
+                "globalThis.order = []; Promise.resolve().then(() => order.push('promise')); setTimeout(() => { order.push('timer'); Promise.resolve().then(() => order.push('timer-job')); }, 1);",
+            )
+            .unwrap();
+        });
+        run_jobs(&runtime, 16);
+        assert_eq!(
+            context.with(|ctx| ctx.eval::<String, _>("order.join(',')").unwrap()),
+            "promise"
+        );
+
+        manual.advance(Duration::from_millis(1));
+        let (_, callback) = state.borrow_mut().take_due_timer(manual.now()).unwrap();
+        context.with(|ctx| {
+            callback.restore(&ctx).unwrap().call::<_, ()>(()).unwrap();
+        });
+        run_jobs(&runtime, 16);
+        let order = context.with(|ctx| ctx.eval::<String, _>("order.join(',')").unwrap());
+        assert_eq!(order, "promise,timer,timer-job");
+
+        state.borrow_mut().dispose();
+        runtime.run_gc();
+    }
+
+    #[test]
     fn promise_and_queue_microtask_share_the_quickjs_job_queue_in_registration_order() {
         let runtime = Runtime::new().unwrap();
         let context = Context::full(&runtime).unwrap();

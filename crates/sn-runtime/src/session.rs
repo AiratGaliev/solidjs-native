@@ -1829,15 +1829,32 @@ mod tests {
                 .any(|entry| { entry.kind == DiagnosticKind::SchedulerBudgetExhausted })
         );
 
-        handle
+        let rejected = handle
             .evaluate("Promise.reject(new Error('expected rejection'));")
-            .unwrap()
-            .wait()
             .unwrap();
-        assert!(handle.take_diagnostics().iter().any(|entry| {
+        rejected.wait_timeout(Duration::from_secs(1)).unwrap();
+        let handled_later = handle
+            .evaluate(
+                "globalThis.lateRejection = Promise.reject(new Error('handled later')); Promise.resolve().then(() => lateRejection.catch(() => {}));",
+            )
+            .unwrap();
+        handled_later.wait_timeout(Duration::from_secs(1)).unwrap();
+
+        let rejection_diagnostics = handle.take_diagnostics();
+        assert!(rejection_diagnostics.iter().any(|entry| {
             entry.kind == DiagnosticKind::PromiseRejection
                 && entry.handled == Some(false)
                 && entry.message.contains("expected rejection")
+        }));
+        assert!(rejection_diagnostics.iter().any(|entry| {
+            entry.kind == DiagnosticKind::PromiseRejection
+                && entry.handled == Some(false)
+                && entry.message.contains("handled later")
+        }));
+        assert!(rejection_diagnostics.iter().any(|entry| {
+            entry.kind == DiagnosticKind::PromiseRejection
+                && entry.handled == Some(true)
+                && entry.message.contains("handled later")
         }));
         session.shutdown().unwrap();
     }
@@ -1918,6 +1935,36 @@ mod tests {
         assert!(handle.take_diagnostics().iter().any(|diagnostic| {
             diagnostic.kind == DiagnosticKind::JavaScriptException
                 && diagnostic.message.contains("shutdown cleanup ran")
+        }));
+    }
+
+    #[test]
+    fn session_shutdown_releases_a_runtime_with_pending_promise_jobs() {
+        let mut config = config(Arc::new(MonotonicClock::default()));
+        config.max_jobs_per_slice = 1;
+        config.max_job_slice_time = Duration::from_secs(1);
+        let session = EngineSession::start(config).unwrap();
+        let handle = session.handle();
+
+        handle
+            .evaluate(
+                "globalThis.pendingJobs = 0; const reschedule = () => Promise.resolve().then(() => { pendingJobs++; reschedule(); }); reschedule();",
+            )
+            .unwrap()
+            .wait()
+            .unwrap();
+        assert!(handle.take_diagnostics().iter().any(|diagnostic| {
+            diagnostic.kind == DiagnosticKind::SchedulerBudgetExhausted
+        }));
+
+        let started = Instant::now();
+        session.shutdown().unwrap();
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "shutdown did not release a runtime with a pending Promise-job chain"
+        );
+        assert!(handle.take_diagnostics().iter().any(|diagnostic| {
+            diagnostic.kind == DiagnosticKind::Shutdown
         }));
     }
 

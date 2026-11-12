@@ -7,7 +7,14 @@ function App() {
     <View>
       <Text>SolidJS Native renderer smoke test</Text>
       <Text>{`Count: ${count()}`}</Text>
-      <Button onClick={() => setCount((value) => value + 1)}>Increment</Button>
+      <Button
+        onClick={() => {
+          Promise.resolve().then(() => setCount((value) => value + 1));
+          queueMicrotask(() => setCount((value) => value + 1));
+        }}
+      >
+        Increment
+      </Button>
     </View>
   );
 }

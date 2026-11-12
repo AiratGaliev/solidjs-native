@@ -51,17 +51,17 @@ fn run_smoke(source: Option<&str>) -> Result<(), String> {
                 .map_err(|error| error.to_string())?
                 .wait()
                 .map_err(|error| error.to_string())?;
-            if updated.counter_text.as_deref() != Some("Count: 1")
+            if updated.counter_text.as_deref() != Some("Count: 2")
                 || updated.revision != initial.revision + 1
-                || updated.last_commit_operation_count != 1
-                || updated.last_commit_replace_text_count != 1
+                || updated.last_commit_operation_count != 2
+                || updated.last_commit_replace_text_count != 2
             {
                 return Err(format!(
                     "Counter signal update acceptance failed: {updated:?}"
                 ));
             }
             println!(
-                "Click callback updated Rust UiTree through one ReplaceText operation (revision={})",
+                "Promise + queueMicrotask updates coalesced into one Host Protocol commit with two ReplaceText operations (revision={})",
                 updated.revision
             );
 
