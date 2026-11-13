@@ -133,7 +133,7 @@ Patch/minor updates обычно объединяются в один dependency
 | rquickjs | 0.14.0 | Cargo workspace pins exactly `=0.14.0`; lockfile resolves 0.14.0 | Latest stable binding checked; exact pin adopted |
 | thiserror | 2.0.21 | Cargo workspace pins exactly `=2.0.21`; lockfile resolves 2.0.21 | Latest stable version checked; exact pin adopted |
 | serde | 1.0.229 | Transitive serde_core at 1.0.229; not a direct dependency yet | Select current stable when M1 protocol implementation adds it |
-| Taffy | 0.15.1 stable; MSRV 1.71; MIT | Not a dependency yet | Selected for the M3 layout prototype behind `sn-layout`; use `default-features = false` with only `std`, `flexbox`, `grid`, `block_layout`, `calc`, `content_size`; implement custom-tree out-of-flow hooks directly (not a Cargo feature) |
+| Taffy | 0.15.1 stable; MSRV 1.71; MIT | Workspace dependency used by `sn-layout`; default features disabled, selected algorithms enabled | Integrated behind `sn-layout` custom-tree adapter; no `taffy_tree`, float or flexbox-balance features; absolute/fixed positioning uses the custom-tree out-of-flow hooks |
 | Tailwind CSS / `@tailwindcss/vite` | v4 stable; `@tailwindcss/vite` 4.2.2 is the first reviewed release whose peer range includes Vite 8 | Not installed; project uses Vite 8.3.7 | Keep the official Vite plugin as the authoring pipeline; at M3 pin the latest compatible stable Tailwind/plugin pair, not 4.2.1 or earlier. Native CSS support still requires `sn-style` conformance tests |
 | QuickJS-NG source | upstream release 0.18.0 (2026-11-01); current `rquickjs-sys 0.14.0` registry source embeds the 0.16.2 snapshot | `rquickjs 0.14.0` changelog identifies submodule commit `2c620e4`; cached registry `quickjs.h` declares 0.16.2 | Keep the binding/source pair intact. Treat the 0.16.2 → 0.18.0 delta as an M2 runtime-hardening review; do not replace the C engine independently of rquickjs |
 
@@ -148,7 +148,7 @@ The following are architecture selections or prototype candidates, not entries i
 | Component | Reviewed upstream baseline / source | Project status |
 |---|---|---|
 | Servo Stylo | 0.18.0; commit `8bde0e96db888b7f188830bea261e72b2006fd73`; MPL-2.0 | First M3 CSS prototype to evaluate; not adopted |
-| Taffy | 0.15.1; MSRV 1.71; MIT | Selected M3 layout prototype behind `sn-layout`; not yet installed |
+| Taffy | 0.15.1; MSRV 1.71; MIT | Integrated M3 dependency in `crates/sn-layout` |
 | AccessKit core | 0.25.2; MSRV 1.85; MIT OR Apache-2.0 | Selected semantic tree/action contract; not integrated. Platform adapter crates are versioned independently and may have a higher MSRV; verify each adapter's compatibility and feature coverage per OS |
 | `style-engine` | 1.0.0, release 2026-10-10; MSRV 1.90; MIT OR Apache-2.0 | Source-level comparison reference only under current MSRV 1.87; do not add as a dependency. Its built-in layout/text/paint layers are outside our selected renderer architecture |
 | `read-fonts`, `skrifa`, HarfBuzz, `image`, `resvg`, `euclid` | Exact releases intentionally not pinned yet | Evaluate only at text/resource/geometry milestones; choose compatible stable releases individually |
