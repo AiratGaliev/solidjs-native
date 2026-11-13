@@ -1,0 +1,11 @@
+[package]
+name = "sn-layout"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+sn-core = { path = "../sn-core" }
+taffy.workspace = true
+thiserror.workspace = true
